@@ -4,7 +4,7 @@ import MatrixTesterIcon from "@/components/icons/MatrixTesterSvg";
 import BoxIcon from "@/components/icons/BoxIcon";
 import LayoutMultiLayersIcon from "@/components/icons/LayoutMultiLayersIcon";
 import MicroscopeIcon from "@/components/icons/MicroscopeIcon";
-import LayoutThumbsIcon from "@/components/icons/LayoutThumbsIcon";
+import LayoutThumbsSingleIcon from "@/components/icons/LayoutThumbsSingleIcon";
 import { ArrowLeft, ChevronDown, Unplug, Undo2, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useVial } from "@/contexts/VialContext";
@@ -543,7 +543,7 @@ const LayerSelector: FC<LayerSelectorProps> = ({
                                         )}
                                         aria-label="Hide Thumbs"
                                     >
-                                        <LayoutThumbsIcon className={cn(
+                                        <LayoutThumbsSingleIcon className={cn(
                                             "h-5 w-5",
                                             isThumb3DOffsetActive ? "text-white" : "text-black"
                                         )} />

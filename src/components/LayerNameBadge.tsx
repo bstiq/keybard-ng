@@ -14,8 +14,8 @@ import { useChanges } from "@/contexts/ChangesContext";
 import { svalService } from "@/services/sval.service";
 import { usbInstance } from "@/services/usb.service";
 import { layerColors } from "@/utils/colors";
-import MiniZapIcon from "@/components/icons/MiniZap";
-import MiniZapDefaultIcon from "@/components/icons/MiniZapDefault";
+import AtomActiveIcon from "@/components/icons/AtomActiveIcon";
+import AtomIcon from "@/components/icons/AtomIcon";
 import { getPresetHsv, hsvToHex, hexToHsv } from "@/utils/color-conversion";
 
 import { cn } from "@/lib/utils";
@@ -298,10 +298,10 @@ export const LayerNameBadge: React.FC<LayerNameBadgeProps> = ({
                         <TooltipTrigger asChild>
                             <span className="flex items-center">
                                 {selectedLayer === defaultLayerIndex ? (
-                                    <MiniZapDefaultIcon className={cn("w-6 h-6", isActive ? "text-black" : "text-gray-300")} />
-                                ) : (
-                                    <MiniZapIcon className={cn("w-6 h-6", isActive ? "text-black" : "text-gray-300")} />
-                                )}
+                                    <AtomIcon className={cn("w-5 h-5", isActive ? "text-black" : "text-gray-300")} />
+                                ) : isActive ? (
+                                    <AtomActiveIcon className={cn("w-5 h-5", "text-black")} />
+                                ) : null}
                             </span>
                         </TooltipTrigger>
                         <TooltipContent side="top">
