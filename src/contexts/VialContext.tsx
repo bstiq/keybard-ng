@@ -208,7 +208,7 @@ export const VialProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         const pollLayerState = async () => {
             if (!isActive) return;
-            if (isConnected && keyboard) {
+            if (isConnected && keyboard && usbInstance.getDeviceName()) {
                 try {
                     const activeLayer = await vialService.getActiveLayerIndex();
                     if (isActive) {

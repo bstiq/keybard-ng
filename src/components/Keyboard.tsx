@@ -23,6 +23,8 @@ import {
 } from "@/utils/colors";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { svalService } from "@/services/sval.service";
+import AtomActiveIcon from "@/components/icons/AtomActiveIcon";
+import AtomIcon from "@/components/icons/AtomIcon";
 // import { InfoIcon } from "./icons/InfoIcon";
 import { usePanels } from "@/contexts/PanelsContext";
 import { useChanges } from "@/hooks/useChanges";
@@ -38,6 +40,7 @@ interface KeyboardProps {
     instanceId?: string;
     show3DBackdrop?: boolean;
     activeLayerIndex?: number | null;
+    isConnected?: boolean;
 }
 
 /**
@@ -54,6 +57,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     instanceId,
     show3DBackdrop = false,
     activeLayerIndex,
+    isConnected = false,
 }) => {
     const {
         selectKeyboardKey,
@@ -348,6 +352,9 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     }, [layoutValues, currentUnitSize, useFragmentLayout, fingerClusterSqueeze, is3DMode, isThumb3DOffsetActive, layoutOffsets]);
 
     const isActiveLayerBackdrop = typeof activeLayerIndex === "number" && activeLayerIndex === selectedLayer;
+    const isLayerActive = typeof activeLayerIndex === "number"
+        ? activeLayerIndex === selectedLayer
+        : !!layerActiveState?.[selectedLayer];
 
     const layerBackdropColor = useMemo(() => {
         const layerName = keyboard.cosmetic?.layer_colors?.[selectedLayer] || "green";
@@ -373,6 +380,8 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         const classes = colorClasses[layerName] || colorClasses.primary;
         return classes.split(" ").find(c => c.startsWith("text-"));
     }, [keyboard.cosmetic, selectedLayer]);
+    const iconColorClass = (isConnected && isLayerActive) ? layerTextColorClass : undefined;
+    const iconColorStyle = iconColorClass ? undefined : { color: layerHeaderTextColor };
 
 
     const KC_TRNS = 1;
@@ -429,13 +438,28 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                             pointerEvents: "none",
                         }}
                     >
-                        <div
-                            className={cn("absolute left-2 top-2 text-lg font-normal select-none", isActiveLayerBackdrop && layerTextColorClass)}
-                            data-layer-label="true"
-                            style={{ color: isActiveLayerBackdrop ? undefined : layerHeaderTextColor, transform: "translateX(16px)" }}
-                        >
-                            {layerDisplayName}
-                        </div>
+                    </div>
+                )}
+                {is3DMode && show3DBackdrop && clusterBounds && (
+                    <div
+                        className={cn("absolute text-lg font-normal select-none flex items-center gap-2", isActiveLayerBackdrop && layerTextColorClass)}
+                        data-layer-label="true"
+                        style={{
+                            color: isActiveLayerBackdrop ? undefined : layerHeaderTextColor,
+                            left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize + 24,
+                            top: ((clusterBounds!.minY + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize + 8,
+                        }}
+                    >
+                        <span>{layerDisplayName}</span>
+                        {(selectedLayer === 0 || isLayerActive) && (
+                            <span className={iconColorClass} style={iconColorStyle}>
+                                {selectedLayer === 0 ? (
+                                    <AtomIcon className="h-6 w-6" />
+                                ) : (
+                                    isLayerActive && <AtomActiveIcon className="h-6 w-6" />
+                                )}
+                            </span>
+                        )}
                     </div>
                 )}
                 {is3DMode && show3DBackdrop && clusterBounds && thumbClusterBounds && (

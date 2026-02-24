@@ -1,10 +1,6 @@
-import { FC } from "react";
+import { SVGProps } from "react";
 
-interface Props {
-    className?: string;
-}
-
-const AtomActiveIcon: FC<Props> = ({ className }) => (
+const AtomActiveIcon = (props: SVGProps<SVGSVGElement>) => (
     <svg
         viewBox="0 0 24 24"
         fill="none"
@@ -13,7 +9,7 @@ const AtomActiveIcon: FC<Props> = ({ className }) => (
         strokeLinecap="round"
         strokeLinejoin="round"
         xmlns="http://www.w3.org/2000/svg"
-        className={className}
+        {...props}
         aria-hidden="true"
     >
         <path d="M20.2,20.2c2.04-2.03.02-7.36-4.5-11.9C11.16,3.78,5.83,1.76,3.8,3.8c-2.04,2.03-.02,7.36,4.5,11.9,4.54,4.52,9.87,6.54,11.9,4.5Z" />

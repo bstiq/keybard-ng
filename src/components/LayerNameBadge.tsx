@@ -13,6 +13,7 @@ import { useVial } from "@/contexts/VialContext";
 import { useChanges } from "@/contexts/ChangesContext";
 import { svalService } from "@/services/sval.service";
 import { usbInstance } from "@/services/usb.service";
+import { useLayoutSettings } from "@/contexts/LayoutSettingsContext";
 import { layerColors } from "@/utils/colors";
 import AtomActiveIcon from "@/components/icons/AtomActiveIcon";
 import AtomIcon from "@/components/icons/AtomIcon";
@@ -298,9 +299,15 @@ export const LayerNameBadge: React.FC<LayerNameBadgeProps> = ({
                         <TooltipTrigger asChild>
                             <span className="flex items-center">
                                 {selectedLayer === defaultLayerIndex ? (
-                                    <AtomIcon className={cn("w-5 h-5", isActive ? "text-black" : "text-gray-300")} />
+                                    <AtomIcon
+                                        className="w-5 h-5"
+                                        style={{ color: displayColorHex, stroke: displayColorHex }}
+                                    />
                                 ) : isActive ? (
-                                    <AtomActiveIcon className={cn("w-5 h-5", "text-black")} />
+                                    <AtomActiveIcon
+                                        className="w-5 h-5"
+                                        style={{ color: displayColorHex, stroke: displayColorHex }}
+                                    />
                                 ) : null}
                             </span>
                         </TooltipTrigger>
@@ -385,7 +392,7 @@ export const LayerNameBadge: React.FC<LayerNameBadgeProps> = ({
                             <EllipsisVertical size={16} strokeWidth={1.5} />
                         </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuContent align="start" className="w-56 z-[1000]">
                         <DropdownMenuItem onSelect={handleCopyLayer}>
                             Copy Layer
                         </DropdownMenuItem>

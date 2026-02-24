@@ -83,7 +83,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     baseBadgeOffsetY = null,
     onBaseBadgeOffsetY,
 }) => {
-    const { keyboard, updateKey, setKeyboard, activeLayerIndex } = useVial();
+    const { keyboard, updateKey, setKeyboard, activeLayerIndex, isConnected } = useVial();
     const { clearSelection } = useKeyBinding();
     const { queue } = useChanges();
     const { activePanel } = usePanels();
@@ -424,6 +424,10 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
         prevShowAllLayersRef.current = showAllLayers;
     }, [visibleLayerIds, showAllLayers]);
 
+    const isSelectedLayerActive = isConnected
+        ? activeLayerIndex === selectedLayer
+        : !!layerActiveState?.[selectedLayer];
+
     return (
         <div
             ref={containerRef}
@@ -434,102 +438,96 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             }}
         >
             {/* Layer Controls Row: Hide-blank-layers toggle + layer tabs + (optional) remove button */}
-            <div
-                className="flex items-center gap-2 pl-5 pb-2 whitespace-nowrap pointer-events-auto"
-                style={isPrimary && multiLayerHeaderOffset > 0 ? { marginTop: -multiLayerHeaderOffset } : undefined}
-            >
-                {!hideLayerTabs && (
-                    <>
-                        <div className="flex items-center gap-1">
-                            <Tooltip delayDuration={500}>
-                                <TooltipTrigger asChild>
-                                    <button
-                                        onClick={toggleShowLayers}
-                                        disabled={activePanel === "matrixtester"}
-                                        className={cn(
-                                            "p-2 rounded-full transition-colors flex-shrink-0",
-                                            activePanel === "matrixtester"
-                                                ? "text-gray-400 cursor-not-allowed opacity-30"
-                                                : "text-black hover:bg-gray-200"
-                                        )}
-                                        aria-label={showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
-                                    >
-                                        {!showAllLayers ? <LayersActiveIcon className="h-5 w-5" /> : <LayersDefaultIcon className="h-5 w-5" />}
-                                    </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top">
-                                    {showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
-                                </TooltipContent>
-                            </Tooltip>
-
-                        </div>
-
-                        <div className={cn("flex items-center gap-1", activePanel === "matrixtester" && "opacity-30 pointer-events-none")}>
-                            {displayOrder.map((i) => renderLayerTab(i))}
-                        </div>
-
+            {!hideLayerTabs && !isMultiLayersActive && (
+                <div
+                    className="flex items-center gap-2 pl-5 pb-2 whitespace-nowrap pointer-events-auto"
+                    style={isPrimary && multiLayerHeaderOffset > 0 ? { marginTop: -multiLayerHeaderOffset } : undefined}
+                >
+                    <div className="flex items-center gap-1">
                         <Tooltip delayDuration={500}>
                             <TooltipTrigger asChild>
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (layerOrderClickTimer.current) {
-                                            clearTimeout(layerOrderClickTimer.current);
-                                            layerOrderClickTimer.current = null;
-                                        }
-                                        if (e.detail >= 2) {
-                                            setIsHudMode((prev) => !prev);
-                                            return;
-                                        }
-                                        layerOrderClickTimer.current = setTimeout(() => {
-                                            onToggleLayerOrder();
-                                            layerOrderClickTimer.current = null;
-                                        }, 200);
-                                    }}
+                                    onClick={toggleShowLayers}
+                                    disabled={activePanel === "matrixtester"}
                                     className={cn(
-                                        "p-2 rounded-full transition-colors",
-                                        isHudMode
-                                            ? "bg-black text-kb-gray"
-                                            : "text-gray-500 hover:text-gray-800 hover:bg-gray-200"
+                                        "p-2 rounded-full transition-colors flex-shrink-0",
+                                        activePanel === "matrixtester"
+                                            ? "text-gray-400 cursor-not-allowed opacity-30"
+                                            : "text-black hover:bg-gray-200"
                                     )}
-                                    aria-label="Reverse Layer Order"
+                                    aria-label={showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
                                 >
-                                    {isLayerOrderReversed
-                                        ? <SquareArrowRightIcon className="h-5 w-5" />
-                                        : <SquareArrowLeftIcon className="h-5 w-5" />}
+                                    {!showAllLayers ? <LayersActiveIcon className="h-5 w-5" /> : <LayersDefaultIcon className="h-5 w-5" />}
                                 </button>
                             </TooltipTrigger>
                             <TooltipContent side="top">
-                                Flip Layer View
+                                {showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
                             </TooltipContent>
                         </Tooltip>
-                    </>
-                )}
 
+                    </div>
 
+                    <div className={cn("flex items-center gap-1", activePanel === "matrixtester" && "opacity-30 pointer-events-none")}>
+                        {displayOrder.map((i) => renderLayerTab(i))}
+                    </div>
 
-
-
-                {/* Remove button for non-primary views */}
-                {!isPrimary && onRemove && (
                     <Tooltip delayDuration={500}>
                         <TooltipTrigger asChild>
                             <button
-                                onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                                className="p-2 rounded-full transition-colors text-gray-400 hover:text-black hover:bg-gray-200 ml-auto mr-4 flex-shrink-0"
-                                aria-label="Hide layer view"
-                                disabled={selectedLayer === 0}
-                                data-remove-view={instanceId}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (layerOrderClickTimer.current) {
+                                        clearTimeout(layerOrderClickTimer.current);
+                                        layerOrderClickTimer.current = null;
+                                    }
+                                    if (e.detail >= 2) {
+                                        setIsHudMode((prev) => !prev);
+                                        return;
+                                    }
+                                    layerOrderClickTimer.current = setTimeout(() => {
+                                        onToggleLayerOrder();
+                                        layerOrderClickTimer.current = null;
+                                    }, 200);
+                                }}
+                                className={cn(
+                                    "p-2 rounded-full transition-colors",
+                                    isHudMode
+                                        ? "bg-black text-kb-gray"
+                                        : "text-gray-500 hover:text-gray-800 hover:bg-gray-200"
+                                )}
+                                aria-label="Reverse Layer Order"
                             >
-                                <LayersMinusIcon className="h-5 w-5" />
+                                {isLayerOrderReversed
+                                    ? <SquareArrowRightIcon className="h-5 w-5" />
+                                    : <SquareArrowLeftIcon className="h-5 w-5" />}
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                            Hide layer view
+                            Flip Layer View
                         </TooltipContent>
                     </Tooltip>
-                )}
-            </div>
+
+                    {/* Remove button for non-primary views */}
+                    {!isPrimary && onRemove && (
+                        <Tooltip delayDuration={500}>
+                            <TooltipTrigger asChild>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onRemove(); }}
+                                    className="p-2 rounded-full transition-colors text-gray-400 hover:text-black hover:bg-gray-200 ml-auto mr-4 flex-shrink-0"
+                                    aria-label="Hide layer view"
+                                    disabled={selectedLayer === 0}
+                                    data-remove-view={instanceId}
+                                >
+                                    <LayersMinusIcon className="h-5 w-5" />
+                                </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                                Hide layer view
+                            </TooltipContent>
+                        </Tooltip>
+                    )}
+                </div>
+            )}
 
             {/* Layer Name Badge Row */}
             <div
@@ -540,7 +538,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
                 <div style={{ marginLeft: -20 }}>
                     <LayerNameBadge
                         selectedLayer={selectedLayer}
-                        isActive={activeLayerIndex === selectedLayer}
+                        isActive={isSelectedLayerActive}
                         onToggleLayerOn={onToggleLayerOn}
                         // TODO: when firmware reports default layer, pass it here.
                         defaultLayerIndex={0}
@@ -615,6 +613,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
                         instanceId={instanceId}
                         show3DBackdrop={is3DMode}
                         activeLayerIndex={activeLayerIndex}
+                        isConnected={isConnected}
                     />
                 </div>
             </div>

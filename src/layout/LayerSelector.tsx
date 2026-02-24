@@ -5,12 +5,18 @@ import BoxIcon from "@/components/icons/BoxIcon";
 import LayoutMultiLayersIcon from "@/components/icons/LayoutMultiLayersIcon";
 import MicroscopeIcon from "@/components/icons/MicroscopeIcon";
 import LayoutThumbsSingleIcon from "@/components/icons/LayoutThumbsSingleIcon";
+import LayersActiveIcon from "@/components/icons/LayersActive";
+import LayersDefaultIcon from "@/components/icons/LayersDefault";
+import SquareArrowLeftIcon from "@/components/icons/SquareArrowLeft";
+import SquareArrowRightIcon from "@/components/icons/SquareArrowRight";
 import { ArrowLeft, ChevronDown, Unplug, Undo2, Zap } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useVial } from "@/contexts/VialContext";
 import { useChanges } from "@/contexts/ChangesContext";
 import { useSettings } from "@/contexts/SettingsContext";
 import { cn } from "@/lib/utils";
+import { svalService } from "@/services/sval.service";
+import { KEYMAP } from "@/constants/keygen";
 
 import { fileService } from "@/services/file.service";
 import {
@@ -36,6 +42,12 @@ interface LayerSelectorProps {
     setSelectedLayer: (layer: number) => void;
     isMultiLayersActive: boolean;
     onToggleMultiLayers: () => void;
+    showAllLayers: boolean;
+    onToggleShowLayers: () => void;
+    isLayerOrderReversed: boolean;
+    onToggleLayerOrder: () => void;
+    layerActiveState?: boolean[];
+    onToggleLayerOn: (layer: number) => void;
     isAllTransparencyActive: boolean;
     onToggleAllTransparency: () => void;
     layerSpacingAdjust: number;
@@ -48,19 +60,27 @@ interface LayerSelectorProps {
  */
 const LayerSelector: FC<LayerSelectorProps> = ({
     selectedLayer: _selectedLayer,
+    setSelectedLayer,
     isMultiLayersActive,
     onToggleMultiLayers,
+    showAllLayers,
+    onToggleShowLayers,
+    isLayerOrderReversed,
+    onToggleLayerOrder,
+    layerActiveState,
+    onToggleLayerOn,
     isAllTransparencyActive,
     onToggleAllTransparency,
     layerSpacingAdjust,
     onLayerSpacingChange
 }) => {
-    const { keyboard, setKeyboard, isConnected, connect, resetToOriginal, setIsImporting } = useVial();
+    const { keyboard, isConnected, connect, resetToOriginal, setIsImporting, activeLayerIndex } = useVial();
     const { queue, commit, getPendingCount, clearAll } = useChanges();
     const { getSetting, updateSetting } = useSettings();
     const { is3DMode, setIs3DMode, isThumb3DOffsetActive, setIsThumb3DOffsetActive, backdropOpacity, setBackdropOpacity } = useLayoutSettings();
 
     const liveUpdating = getSetting("live-updating") === true;
+    const selectedLayer = _selectedLayer;
 
 
 
@@ -194,6 +214,59 @@ const LayerSelector: FC<LayerSelectorProps> = ({
 
     const { activePanel, setActivePanel, setOpen, setItemToEdit, setPanelToGoBack } = usePanels();
 
+    const handleSelectLayer = (layer: number) => () => {
+        setSelectedLayer(layer);
+    };
+
+    const shouldRenderLayerTab = (i: number) => {
+        const layerData = keyboard.keymap?.[i];
+        const isTransparentLayer = layerData ? layerData.every((keycode) => keycode === (KEYMAP["KC_TRNS"]?.code ?? 1)) : true;
+        const isLayerActive = typeof activeLayerIndex === "number"
+            ? activeLayerIndex === i
+            : !!layerActiveState?.[i];
+
+        const shouldHideTransparent = !showAllLayers;
+        if (shouldHideTransparent && isTransparentLayer && i !== selectedLayer && !isLayerActive) {
+            return false;
+        }
+        return true;
+    };
+
+    const renderLayerTab = (i: number) => {
+        if (!shouldRenderLayerTab(i)) return null;
+
+        const layerShortName = svalService.getLayerNameNoLabel(keyboard, i);
+        const isActive = selectedLayer === i;
+        const isLayerActive = typeof activeLayerIndex === "number"
+            ? activeLayerIndex === i
+            : !!layerActiveState?.[i];
+
+        return (
+            <button
+                key={`layer-tab-${i}`}
+                onClick={handleSelectLayer(i)}
+                onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onToggleLayerOn(i);
+                }}
+                className={cn(
+                    "px-4 py-1 rounded-full transition-colors text-sm font-medium cursor-pointer border-none outline-none whitespace-nowrap",
+                    isActive
+                        ? "bg-gray-800 text-white shadow-md scale-105"
+                        : "bg-transparent text-gray-600 hover:bg-gray-200"
+                )}
+            >
+                <span className={cn("select-none", isLayerActive && "underline underline-offset-2")}>
+                    {layerShortName}
+                </span>
+            </button>
+        );
+    };
+
+    const allLayerIds = Array.from({ length: keyboard.layers || 16 }, (_, i) => i);
+    const visibleLayerIds = allLayerIds.filter(shouldRenderLayerTab);
+    const displayOrder = isLayerOrderReversed ? [...visibleLayerIds].reverse() : visibleLayerIds;
+
     // Single clean render - horizontal bar of layer tabs (single line, no wrap, no scroll)
     // When vertically constrained: hover-only mode with collapsed hint bar
     return (
@@ -216,9 +289,10 @@ const LayerSelector: FC<LayerSelectorProps> = ({
 
             {/* Full layer tabs - shown when not constrained or when hovered */}
             {showFullBar && (
-                <div className="flex flex-col w-full">
-                    {/* Top Row: Connect/Import/Export + Live Controls + Tab Icon + Tabs */}
-                    <div className="flex items-center gap-2 pl-5 py-2 whitespace-nowrap">
+                <div className="flex flex-col w-full bg-transparent">
+                    <div className="relative w-full bg-transparent">
+                        {/* Top Row: Connect/Import/Export + Live Controls + Tab Icon + Tabs */}
+                        <div className="flex items-center gap-2 pl-5 py-2 whitespace-nowrap bg-transparent">
 
                         {/* File Input (Hidden) */}
                         <input
@@ -615,20 +689,76 @@ const LayerSelector: FC<LayerSelectorProps> = ({
                     </div>
 
                     {/* Matrix Tester Title - shown only when matrix tester is active */}
-                    {activePanel === "matrixtester" && (
-                        <div className="pl-[27px] pt-[7px] pb-2">
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => setActivePanel(null)}
-                                    className="flex items-center gap-2 p-1 pr-3 -ml-1 rounded-lg hover:bg-gray-200 transition-colors"
-                                    title="Return to layer view"
-                                >
-                                    <ArrowLeft className="h-5 w-5 text-black" />
-                                    <span className="font-bold text-lg text-black">Matrix Tester</span>
-                                </button>
+                        {activePanel === "matrixtester" && (
+                            <div className="pl-[27px] pt-[7px] pb-2">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setActivePanel(null)}
+                                        className="flex items-center gap-2 p-1 pr-3 -ml-1 rounded-lg hover:bg-gray-200 transition-colors"
+                                        title="Return to layer view"
+                                    >
+                                        <ArrowLeft className="h-5 w-5 text-black" />
+                                        <span className="font-bold text-lg text-black">Matrix Tester</span>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
+
+                        {/* Layer Tabs Row - fixed position in multi-layer mode */}
+                        {isMultiLayersActive && (
+                            <div className="absolute left-0 right-0 top-full z-30 flex items-center gap-2 pl-5 pb-2 whitespace-nowrap bg-transparent pointer-events-auto">
+                                <div className="flex items-center gap-1">
+                                    <Tooltip delayDuration={500}>
+                                        <TooltipTrigger asChild>
+                                            <button
+                                                onClick={onToggleShowLayers}
+                                                disabled={activePanel === "matrixtester"}
+                                                className={cn(
+                                                    "p-2 rounded-full transition-colors flex-shrink-0",
+                                                    activePanel === "matrixtester"
+                                                        ? "text-gray-400 cursor-not-allowed opacity-30"
+                                                        : "text-black hover:bg-gray-200"
+                                                )}
+                                                aria-label={showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
+                                            >
+                                                {!showAllLayers ? <LayersActiveIcon className="h-5 w-5" /> : <LayersDefaultIcon className="h-5 w-5" />}
+                                            </button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="top">
+                                            {showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </div>
+
+                                <div className={cn("flex items-center gap-1", activePanel === "matrixtester" && "opacity-30 pointer-events-none")}>
+                                    {displayOrder.map((i) => renderLayerTab(i))}
+                                </div>
+
+                                <Tooltip delayDuration={500}>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onToggleLayerOrder();
+                                            }}
+                                            className={cn(
+                                                "p-2 rounded-full transition-colors",
+                                                "text-gray-500 hover:text-gray-800 hover:bg-gray-200"
+                                            )}
+                                            aria-label="Reverse Layer Order"
+                                        >
+                                            {isLayerOrderReversed
+                                                ? <SquareArrowRightIcon className="h-5 w-5" />
+                                                : <SquareArrowLeftIcon className="h-5 w-5" />}
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">
+                                        Flip Layer View
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

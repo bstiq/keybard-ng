@@ -785,6 +785,12 @@ const EditorLayoutInner = () => {
                     setSelectedLayer={setSelectedLayer}
                     isMultiLayersActive={isMultiLayersActive}
                     onToggleMultiLayers={() => setIsMultiLayersActive(prev => !prev)}
+                    showAllLayers={showAllLayers}
+                    onToggleShowLayers={handleToggleShowLayers}
+                    isLayerOrderReversed={isLayerOrderReversed}
+                    onToggleLayerOrder={() => setIsLayerOrderReversed(prev => !prev)}
+                    layerActiveState={layerActiveState}
+                    onToggleLayerOn={handleToggleLayerOn}
                     isAllTransparencyActive={isAllTransparencyActive}
                     onToggleAllTransparency={handleToggleAllTransparency}
                     layerSpacingAdjust={layerSpacingAdjust}
@@ -792,7 +798,10 @@ const EditorLayoutInner = () => {
                 />
 
                 <div
-                    className="flex-1 overflow-y-auto flex flex-col items-center max-w-full relative"
+                    className={cn(
+                        "flex-1 overflow-y-auto flex flex-col items-center max-w-full relative",
+                        isMultiLayersActive && "pt-12"
+                    )}
                     ref={viewsScrollRef}
                 >
 
@@ -856,7 +865,7 @@ const EditorLayoutInner = () => {
                                                         }}
                                                         className="w-full relative pointer-events-none"
                                                         style={{
-                                                            zIndex: (viewsToDisplay.length - index) * 1000,
+                                                            zIndex: (viewsToDisplay.length - index),
                                                             transformStyle: is3DMode ? 'preserve-3d' : 'flat',
                                                         }}
                                                     >
