@@ -150,6 +150,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     const isTransparencyActive = !!transparencyByLayer[selectedLayer];
     const tabRefs = useRef<Map<number, HTMLButtonElement | null>>(new Map());
     const prevTabRectsRef = useRef<Map<number, DOMRect>>(new Map());
+    const prevDisplayOrderRef = useRef<number[] | null>(null);
     const prevVisibleIdsRef = useRef<Set<number>>(new Set());
     const prevShowAllLayersRef = useRef<boolean>(showAllLayers);
     const prevIsLayerOrderReversed = useRef<boolean>(isLayerOrderReversed);
@@ -336,7 +337,13 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
         });
 
         const prevRects = prevTabRectsRef.current;
-        if (prevRects.size > 0) {
+        const prevDisplayOrder = prevDisplayOrderRef.current;
+        const hasSameOrder =
+            !!prevDisplayOrder &&
+            prevDisplayOrder.length === displayOrder.length &&
+            prevDisplayOrder.every((layerId, index) => layerId === displayOrder[index]);
+
+        if (prevRects.size > 0 && !hasSameOrder) {
             // Stagger from the leftmost visible tab, regardless of order
             const delayOrder = [...displayOrder];
             const delayIndexByLayer = new Map<number, number>();
@@ -377,6 +384,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
         }
 
         prevTabRectsRef.current = currentRects;
+        prevDisplayOrderRef.current = displayOrder;
         prevIsLayerOrderReversed.current = isLayerOrderReversed;
     }, [
         displayOrder,

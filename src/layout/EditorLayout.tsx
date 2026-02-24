@@ -1219,7 +1219,7 @@ const GuideLines = ({
                 });
             };
 
-            const zBottom = (numLayers - 1) * zStep;
+            let zBottom = (numLayers - 1) * zStep;
 
             const projectPoint = (pxX: number, pxY: number, z: number) => {
                 const localX = pxX - originX;
@@ -1286,18 +1286,6 @@ const GuideLines = ({
                 }
             };
 
-            clusterTopKeys.forEach(({ x, y, label }) => {
-                const top = findKeyByXY(x, y);
-                if (!top) return;
-                const right = findKeyByXY(x + 1, y + 1);
-                const bottom = findKeyByXY(x, y + 2);
-                const left = findKeyByXY(x - 1, y + 1);
-                if (top) addFromKey(top, "top", label);
-                if (right) addFromKey(right, "right", label);
-                if (bottom) addFromKey(bottom, "bottom", label);
-                if (left) addFromKey(left, "left", label);
-            });
-
             const getKeyEl = (kbEl: HTMLElement, key: { x: number; y: number }) => {
                 const selector = `[data-key-x="${key.x}"][data-key-y="${key.y}"]`;
                 return kbEl.querySelector(selector) as HTMLElement | null;
@@ -1343,6 +1331,31 @@ const GuideLines = ({
             };
 
             const l2Actual = getActualTopEdge(keyboardEl, 3.5, 0); // W
+            const lastKeyboardEl = lastViewId
+                ? (document.querySelector(`[data-keyboard-instance="${lastViewId}"]`) as HTMLElement | null)
+                : null;
+            const l2ActualLast = lastKeyboardEl ? getActualTopEdge(lastKeyboardEl, 3.5, 0) : null;
+
+            if (l2Actual && l2ActualLast) {
+                const measuredDeltaY = l2ActualLast.left.y - l2Actual.left.y;
+                const measuredZBottom = measuredDeltaY / sin55;
+                if (Number.isFinite(measuredZBottom) && measuredZBottom > 0) {
+                    zBottom = measuredZBottom;
+                }
+            }
+
+            clusterTopKeys.forEach(({ x, y, label }) => {
+                const top = findKeyByXY(x, y);
+                if (!top) return;
+                const right = findKeyByXY(x + 1, y + 1);
+                const bottom = findKeyByXY(x, y + 2);
+                const left = findKeyByXY(x - 1, y + 1);
+                if (top) addFromKey(top, "top", label);
+                if (right) addFromKey(right, "right", label);
+                if (bottom) addFromKey(bottom, "bottom", label);
+                if (left) addFromKey(left, "left", label);
+            });
+
             const r2Actual = getActualTopEdge(keyboardEl, 16.3, 0); // I
             const calcLeft = points.find((p) => p.label === "L2-top-1" && !p.isBottom);
             const calcRight = points.find((p) => p.label === "R2-top-2" && !p.isBottom);
