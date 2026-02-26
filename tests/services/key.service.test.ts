@@ -64,6 +64,9 @@ vi.mock('../../src/constants/keygen', () => {
     'USER00': { code: 0x7e00, qmkid: 'USER00', str: 'U00', title: 'User 00' },
     'USER01': { code: 0x7e01, qmkid: 'USER01', str: 'U01', title: 'User 01' },
     'USER02': { code: 0x7e02, qmkid: 'USER02', str: 'U02', title: 'User 02' },
+
+    // Alt repeat
+    'QK_ALT_REPEAT_KEY': { code: 0x7c7a, qmkid: 'QK_ALT_REPEAT_KEY', str: 'Arep', title: 'Alt Repeat' },
   };
 
   // Initialize missing entries for generateAllKeycodes testing
@@ -71,6 +74,13 @@ vi.mock('../../src/constants/keygen', () => {
     const userkey = 'USER' + ('' + i).padStart(2, '0');
     if (!mockKeymap[userkey]) {
       mockKeymap[userkey] = { code: 0x7e00 + i, qmkid: userkey, str: `U${i}`, title: `User ${i}` };
+    }
+  }
+
+  for (let i = 0; i < 32; i++) {
+    const qkUserKey = i === 0 ? 'QK_USER' : `QK_USER_${i}`;
+    if (!mockKeymap[qkUserKey]) {
+      mockKeymap[qkUserKey] = { code: 0x7e40 + i, qmkid: qkUserKey, str: `QK_U${i}`, title: `QK User ${i}` };
     }
   }
 
@@ -155,12 +165,12 @@ describe('KeyService', () => {
         title: 'Custom Key 1'
       });
       expect(KEYMAP['CUSTOM_KEY_1']).toEqual({
-        code: 0x7e00,
+        code: 0x7e40, // QK_USER (0x7e40) overwrites USER00 (0x7e00) for the custom name
         qmkid: 'CUSTOM_KEY_1',
         str: 'CK1',
         title: 'Custom Key 1'
       });
-      expect(KEYALIASES['CUSTOM_KEY_1']).toBe('USER00');
+      expect(KEYALIASES['CUSTOM_KEY_1']).toBe('QK_USER');
     });
 
     it('should add type and idx to macro keys', () => {

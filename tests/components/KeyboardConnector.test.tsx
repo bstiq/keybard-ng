@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import KeyboardConnector from '../../src/components/KeyboardConnector';
 import { VialProvider } from '../../src/contexts/VialContext';
 import type { KeyboardInfo } from '../../src/types/vial.types';
@@ -9,6 +10,10 @@ vi.mock('../../src/services/file.service', () => ({
   fileService: {
     loadFile: vi.fn(),
   },
+}));
+
+vi.mock('../../src/components/Keyboard', () => ({
+  Keyboard: () => <div data-testid="mock-keyboard" />
 }));
 
 vi.mock('../../src/services/vial.service', () => ({

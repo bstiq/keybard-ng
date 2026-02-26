@@ -53,12 +53,22 @@ describe('QMKService', () => {
       const kbinfo = createTestKeyboardInfo();
       usbControl.setConnected(true);
 
-      // Mock query responses - keyboard supports QSIDs 1, 2, 3
-      mockUSB.sendViable
-        .mockResolvedValueOnce(new Uint16Array([1, 2, 3, 0xffff])) // First query
-        .mockResolvedValueOnce([0, 1]) // Get QSID 1 (byte)
-        .mockResolvedValueOnce([0, 200]) // Get QSID 2 (uint16)
-        .mockResolvedValueOnce([0, 0]); // Get QSID 3 (byte)
+      // Mock sendViable to distinguish between query and get
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[], options?: any) => {
+        if (cmd === 0x10) { // CMD_VIABLE_QMK_SETTINGS_QUERY
+          // Return QSIDs 1, 2, 3 and then terminate
+          const cur = args[0] | (args[1] << 8);
+          if (cur === 0) return Promise.resolve(new Uint16Array([1, 2, 3, 0xffff]));
+          return Promise.resolve(new Uint16Array([0xffff]));
+        }
+        if (cmd === 0x11) { // CMD_VIABLE_QMK_SETTINGS_GET
+          const qsid = args[0];
+          if (qsid === 1) return Promise.resolve([0, 0, 1]); // byte
+          if (qsid === 2) return Promise.resolve([0, 0, 200, 0]); // uint16
+          if (qsid === 3) return Promise.resolve([0, 0, 0]); // byte
+        }
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);
@@ -91,11 +101,18 @@ describe('QMKService', () => {
       const kbinfo = createTestKeyboardInfo();
       usbControl.setConnected(true);
 
-      // Mock query responses - keyboard only supports QSIDs 1 and 4
-      mockUSB.sendViable
-        .mockResolvedValueOnce(new Uint16Array([1, 4, 0xffff]))
-        .mockResolvedValueOnce([0, 1]) // Get QSID 1
-        .mockResolvedValueOnce([0, 5]); // Get QSID 4
+      // Mock sendViable to distinguish between query and get
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[]) => {
+        if (cmd === 0x10) { // CMD_VIABLE_QMK_SETTINGS_QUERY
+          return Promise.resolve(new Uint16Array([1, 4, 0xffff]));
+        }
+        if (cmd === 0x11) { // CMD_VIABLE_QMK_SETTINGS_GET
+          const qsid = args[0];
+          if (qsid === 1) return Promise.resolve([0, 0, 1]);
+          if (qsid === 4) return Promise.resolve([0, 0, 5]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);
@@ -114,14 +131,21 @@ describe('QMKService', () => {
       const kbinfo = createTestKeyboardInfo();
       usbControl.setConnected(true);
 
-      // Mock query responses - all QSIDs supported
-      mockUSB.sendViable
-        .mockResolvedValueOnce(new Uint16Array([1, 2, 3, 4, 5, 0xffff]))
-        .mockResolvedValueOnce([0, 1]) // QSID 1: byte
-        .mockResolvedValueOnce([0, 0x1234]) // QSID 2: uint16
-        .mockResolvedValueOnce([0, 0]) // QSID 3: byte
-        .mockResolvedValueOnce([0, 10]) // QSID 4: byte
-        .mockResolvedValueOnce([0, 0x12345678]); // QSID 5: uint32
+      // Mock sendViable to distinguish between query and get
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[]) => {
+        if (cmd === 0x10) { // CMD_VIABLE_QMK_SETTINGS_QUERY
+          return Promise.resolve(new Uint16Array([1, 2, 3, 4, 5, 0xffff]));
+        }
+        if (cmd === 0x11) { // CMD_VIABLE_QMK_SETTINGS_GET
+          const qsid = args[0];
+          if (qsid === 1) return Promise.resolve([0, 0, 1]);
+          if (qsid === 2) return Promise.resolve([0, 0, 0x34, 0x12]);
+          if (qsid === 3) return Promise.resolve([0, 0, 0]);
+          if (qsid === 4) return Promise.resolve([0, 0, 10]);
+          if (qsid === 5) return Promise.resolve([0, 0, 0x78, 0x56, 0x34, 0x12]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);
@@ -144,15 +168,19 @@ describe('QMKService', () => {
       // Create array of 20 QSIDs to force pagination
       const qsids = Array.from({ length: 20 }, (_, i) => i + 1);
 
-      // Mock query responses - split across pages
-      mockUSB.sendViable
-        .mockResolvedValueOnce(new Uint16Array(qsids.slice(0, 16))) // First page
-        .mockResolvedValueOnce(new Uint16Array([...qsids.slice(16), 0xffff])); // Second page
-
-      // Mock get responses for known QSIDs
-      for (const qsid of [1, 2, 3, 4, 5]) {
-        mockUSB.sendViable.mockResolvedValueOnce([0, qsid * 10]);
-      }
+      // Mock sendViable with pagination
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[]) => {
+        if (cmd === 0x10) {
+          const cur = args[0] | (args[1] << 8);
+          if (cur === 0) return Promise.resolve(new Uint16Array(qsids.slice(0, 16)));
+          if (cur === 16) return Promise.resolve(new Uint16Array([...qsids.slice(16), 0xffff]));
+          return Promise.resolve(new Uint16Array([0xffff]));
+        }
+        if (cmd === 0x11) {
+          return Promise.resolve([0, 0, (args[0] || 0) * 10]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);
@@ -186,11 +214,15 @@ describe('QMKService', () => {
       const kbinfo = createTestKeyboardInfo();
       usbControl.setConnected(true);
 
-      // Test with regular array response
-      mockUSB.sendViable
-        .mockResolvedValueOnce([1, 2, 0xffff]) // Regular array
-        .mockResolvedValueOnce([0, 1])
-        .mockResolvedValueOnce([0, 200]);
+      // Mock sendViable with regular array
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[]) => {
+        if (cmd === 0x10) return Promise.resolve([1, 2, 0xffff]);
+        if (cmd === 0x11) {
+          if (args[0] === 1) return Promise.resolve([0, 0, 1]);
+          if (args[0] === 2) return Promise.resolve([0, 0, 200, 0]);
+        }
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);
@@ -301,10 +333,12 @@ describe('QMKService', () => {
       const kbinfo = createTestKeyboardInfo();
       usbControl.setConnected(true);
 
-      mockUSB.sendViable
-        .mockResolvedValueOnce(new Uint16Array([1, 2, 0xffff]))
-        .mockResolvedValueOnce([0, 0]) // QSID 1 = 0
-        .mockResolvedValueOnce([0, 0]); // QSID 2 = 0
+      // Mock sendViable
+      mockUSB.sendViable.mockImplementation((cmd: number, args: number[]) => {
+        if (cmd === 0x10) return Promise.resolve(new Uint16Array([1, 2, 0xffff]));
+        if (cmd === 0x11) return Promise.resolve([0, 0, 0]);
+        return Promise.resolve(undefined);
+      });
 
       // Act
       await qmkService.get(kbinfo);

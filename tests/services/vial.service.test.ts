@@ -11,18 +11,17 @@ vi.mock('../../src/services/key.service', () => ({
   }
 }));
 
-// Mock xz-decompress
-vi.mock('xz-decompress', () => ({
-  XzReadableStream: vi.fn().mockImplementation(() => ({
-    getReader: () => ({
-      read: vi.fn()
-        .mockResolvedValueOnce({
-          done: false,
-          value: new TextEncoder().encode('{"matrix":{"rows":4,"cols":12},"customKeycodes":[],"lighting":"none"}')
-        })
-        .mockResolvedValue({ done: true })
+// Mock js-lzma
+// @ts-ignore
+import LZMA from 'js-lzma';
+vi.mock('js-lzma', () => ({
+  default: {
+    decompressFile: vi.fn((_inStream, outStream) => {
+      const data = '{"matrix":{"rows":4,"cols":12},"customKeycodes":[],"lighting":"none"}';
+      const bytes = new TextEncoder().encode(data);
+      bytes.forEach(b => outStream.writeByte(b));
     })
-  }))
+  }
 }));
 
 // Mock sval service
@@ -30,7 +29,8 @@ vi.mock('../../src/services/sval.service', () => ({
   svalService: {
     check: vi.fn(),
     pull: vi.fn(),
-    setupCosmeticLayerNames: vi.fn()
+    setupCosmeticLayerNames: vi.fn(),
+    syncCosmeticLayerColors: vi.fn()
   }
 }));
 
@@ -92,12 +92,13 @@ describe('VialService', () => {
       if (cmd === 0x02) { // Get keyboard value (for matrix polling)
         // Return matrix state data
         const response = new Uint8Array(32);
-        response[0] = 0x02;
-        response[1] = 0x03; // Matrix state type
-        // Row 0: col 0 and 2 pressed
-        response[2] = 0b00000101;
+        response[0] = 0x02; // CMD_VIA_GET_KEYBOARD_VALUE
+        response[1] = 0x03; // VIA_SWITCH_MATRIX_STATE
+        response[2] = 0x00; // Offset (matches service logic)
+        // Row 0: col 0 and 2 pressed (data starts at index 3)
+        response[3] = 0b00000101;
         // Row 1: no keys pressed
-        response[3] = 0b00000000;
+        response[4] = 0b00000000;
         return Promise.resolve(response);
       }
       if (cmd === 0x05) { // Set keycode
@@ -148,23 +149,24 @@ describe('VialService', () => {
         // Response format: [protocol_version:4][uid:8][feature_flags:1]
         // Protocol version = 6 (0x00000006), UID = 0x1234567890ABCDEF, feature_flags = 0
         if (options?.uint8) {
-          const response = new Uint8Array(13);
+          const response = new Uint8Array(14);
+          response[0] = 0x00; // cmd_echo
           // Protocol version (LE32): 6
-          response[0] = 0x06;
-          response[1] = 0x00;
+          response[1] = 0x06;
           response[2] = 0x00;
           response[3] = 0x00;
+          response[4] = 0x00;
           // UID (8 bytes): will be converted to hex string for kbid
-          response[4] = 0xEF;
-          response[5] = 0xCD;
-          response[6] = 0xAB;
-          response[7] = 0x90;
-          response[8] = 0x78;
-          response[9] = 0x56;
-          response[10] = 0x34;
-          response[11] = 0x12;
+          response[5] = 0xEF;
+          response[6] = 0xCD;
+          response[7] = 0xAB;
+          response[8] = 0x90;
+          response[9] = 0x78;
+          response[10] = 0x56;
+          response[11] = 0x34;
+          response[12] = 0x12;
           // Feature flags
-          response[12] = 0x00;
+          response[13] = 0x00;
           return Promise.resolve(response);
         }
         return Promise.resolve(new Uint8Array(13));
@@ -241,7 +243,7 @@ describe('VialService', () => {
       const kbinfo = createTestKeyboardInfo();
       await vialService.getKeyboardInfo(kbinfo);
       // The UID bytes are converted to hex string
-      expect(kbinfo.kbid).toBe('efcdab9078563412');
+      expect(kbinfo.kbid).toBe('1234567890abcdef');
     });
 
     it('should handle USB disconnection during info retrieval', async () => {
@@ -352,7 +354,7 @@ describe('VialService', () => {
       expect(result).toBe(kbinfo);
       expect(kbinfo.via_proto).toBe(0x0C);
       expect(kbinfo.viable_proto).toBe(6);
-      expect(kbinfo.kbid).toBe('efcdab9078563412');
+      expect(kbinfo.kbid).toBe('1234567890abcdef');
       expect(kbinfo.macro_count).toBe(2);
       expect(kbinfo.keymap).toHaveLength(4);
     });
@@ -457,17 +459,19 @@ describe('VialService', () => {
 
       mockUSB.send.mockImplementation(() => {
         const response = new Uint8Array(32);
-        response[0] = 0x02;
-        response[1] = 0x03;
-        // Each row needs 2 bytes for 16 columns
-        response[2] = 0xFF; // Row 0, cols 0-7
+        response[0] = 0x02; // CMD_VIA_GET_KEYBOARD_VALUE
+        response[1] = 0x03; // VIA_SWITCH_MATRIX_STATE
+        response[2] = 0x00; // Offset byte
+        // Each row needs 2 bytes for 16 columns (data starts at index 3)
+        // Reverse byte order: cols 8-15 come FIRST in the protocol row, cols 0-7 SECOND
         response[3] = 0x00; // Row 0, cols 8-15
-        response[4] = 0x00; // Row 1, cols 0-7
+        response[4] = 0xFF; // Row 0, cols 0-7
         response[5] = 0xFF; // Row 1, cols 8-15
-        response[6] = 0xAA; // Row 2, cols 0-7
+        response[6] = 0x00; // Row 1, cols 0-7
         response[7] = 0x55; // Row 2, cols 8-15
-        response[8] = 0x00; // Row 3, cols 0-7
+        response[8] = 0xAA; // Row 2, cols 0-7
         response[9] = 0x00; // Row 3, cols 8-15
+        response[10] = 0x00; // Row 3, cols 0-7
         return Promise.resolve(response);
       });
 
@@ -524,21 +528,12 @@ describe('VialService', () => {
     });
   });
 
-  describe('XZ decompression error handling', () => {
-    it('should handle xz-decompress read error', async () => {
-      // Create a separate mock for XzReadableStream that throws an error
-      const { XzReadableStream } = await import('xz-decompress');
-      const mockXzReadableStream = vi.mocked(XzReadableStream);
-
-      // Mock to throw error during read
-      mockXzReadableStream.mockImplementationOnce(() => ({
-        getReader: () => ({
-          read: vi.fn().mockRejectedValue(new Error('XZ decompression failed')),
-          releaseLock: vi.fn(),
-          closed: Promise.resolve(undefined),
-          cancel: vi.fn().mockResolvedValue(undefined)
-        })
-      }) as any);
+  describe('LZMA decompression error handling', () => {
+    it('should handle js-lzma decompression error', async () => {
+      // Mock to throw error during decompression
+      vi.mocked(LZMA.decompressFile).mockImplementationOnce(() => {
+        throw new Error('LZMA decompression failed');
+      });
 
       const kbinfo = createTestKeyboardInfo();
 
@@ -564,8 +559,8 @@ describe('VialService', () => {
         return Promise.resolve(new Uint8Array(32));
       });
 
-      // The getKeyboardInfo method internally calls methods that use XZ decompression
-      await expect(vialService.getKeyboardInfo(kbinfo)).rejects.toThrow('XZ decompression failed');
+      // The getKeyboardInfo method internally calls methods that use LZMA decompression
+      await expect(vialService.getKeyboardInfo(kbinfo)).rejects.toThrow('LZMA decompression failed');
     });
   });
 
