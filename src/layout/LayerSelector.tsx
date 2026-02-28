@@ -3,8 +3,7 @@ import { LayoutExport } from "@/components/icons/LayoutExport";
 import MatrixTesterIcon from "@/components/icons/MatrixTesterSvg";
 import BoxIcon from "@/components/icons/BoxIcon";
 import LayoutMultiLayersIcon from "@/components/icons/LayoutMultiLayersIcon";
-import MicroscopeIcon from "@/components/icons/MicroscopeIcon";
-import LayoutThumbsSingleIcon from "@/components/icons/LayoutThumbsSingleIcon";
+import ThumbGrid3x2Icon from "@/components/icons/ThumbGrid3x2Icon";
 import LayersActiveIcon from "@/components/icons/LayersActive";
 import LayersDefaultIcon from "@/components/icons/LayersDefault";
 import SquareArrowLeftIcon from "@/components/icons/SquareArrowLeft";
@@ -81,6 +80,7 @@ const LayerSelector: FC<LayerSelectorProps> = ({
 
     const liveUpdating = getSetting("live-updating") === true;
     const selectedLayer = _selectedLayer;
+    const transparentKeyGlyph = KEYMAP["KC_TRNS"]?.str || "▽";
 
 
 
@@ -617,9 +617,9 @@ const LayerSelector: FC<LayerSelectorProps> = ({
                                             )}
                                             aria-label="Hide Thumbs"
                                         >
-                                            <LayoutThumbsSingleIcon className={cn(
+                                            <ThumbGrid3x2Icon className={cn(
                                                 "h-5 w-5",
-                                                isThumb3DOffsetActive ? "text-white" : "text-black"
+                                                isThumb3DOffsetActive ? "text-kb-gray" : "text-gray-700"
                                             )} />
                                         </button>
                                     </TooltipTrigger>
@@ -642,16 +642,18 @@ const LayerSelector: FC<LayerSelectorProps> = ({
                                                     ? "bg-black hover:bg-gray-800"
                                                     : "hover:bg-gray-200"
                                             )}
-                                            aria-label={isAllTransparencyActive ? "Show Transparent Keys (All Layers)" : "Hide Transparent Keys (All Layers)"}
+                                            aria-label={isAllTransparencyActive ? "Show All Transparent Keys" : "Hide All Transparent Keys"}
                                         >
-                                            <MicroscopeIcon className={cn(
-                                                "h-4 w-4",
-                                                isAllTransparencyActive ? "text-kb-gray" : "text-black"
-                                            )} />
+                                            <span className={cn(
+                                                "text-lg leading-none font-semibold translate-y-[2px]",
+                                                isAllTransparencyActive ? "text-kb-gray" : "text-gray-700"
+                                            )}>
+                                                {transparentKeyGlyph}
+                                            </span>
                                         </button>
                                     </TooltipTrigger>
                                     <TooltipContent side="top">
-                                        {isAllTransparencyActive ? "Show Transparent Keys (All Layers)" : "Hide Transparent Keys (All Layers)"}
+                                        {isAllTransparencyActive ? "Show All Transparent Keys" : "Hide All Transparent Keys"}
                                     </TooltipContent>
                                 </Tooltip>
                                 {is3DMode && isMultiLayersActive && (
@@ -719,11 +721,11 @@ const LayerSelector: FC<LayerSelectorProps> = ({
                                                         ? "text-gray-400 cursor-not-allowed opacity-30"
                                                         : "text-black hover:bg-gray-200"
                                                 )}
-                                                aria-label={showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
-                                            >
-                                                {!showAllLayers ? <LayersActiveIcon className="h-5 w-5" /> : <LayersDefaultIcon className="h-5 w-5" />}
-                                            </button>
-                                        </TooltipTrigger>
+                                            aria-label={showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
+                                        >
+                                            {!showAllLayers ? <LayersActiveIcon className="h-5 w-5" /> : <LayersDefaultIcon className="h-5 w-5" />}
+                                        </button>
+                                    </TooltipTrigger>
                                         <TooltipContent side="top">
                                             {showAllLayers ? "Hide Transparent Layers" : "Show All Layers"}
                                         </TooltipContent>

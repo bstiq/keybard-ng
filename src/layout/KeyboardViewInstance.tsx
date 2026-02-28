@@ -7,7 +7,6 @@ import LayersDefaultIcon from "@/components/icons/LayersDefault";
 import LayersMinusIcon from "@/components/icons/LayersMinusIcon";
 import SquareArrowLeftIcon from "@/components/icons/SquareArrowLeft";
 import SquareArrowRightIcon from "@/components/icons/SquareArrowRight";
-import MicroscopeIcon from "@/components/icons/MicroscopeIcon";
 import { useVial } from "@/contexts/VialContext";
 import { useKeyBinding } from "@/contexts/KeyBindingContext";
 import { useChanges } from "@/contexts/ChangesContext";
@@ -15,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { useLayoutSettings } from "@/contexts/LayoutSettingsContext";
 import { svalService } from "@/services/sval.service";
 import { MATRIX_COLS } from "@/constants/svalboard-layout";
+import { KEYMAP } from "@/constants/keygen";
 import { usePanels } from "@/contexts/PanelsContext";
 import {
     ContextMenu,
@@ -84,6 +84,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     onBaseBadgeOffsetY,
 }) => {
     const { keyboard, updateKey, setKeyboard, activeLayerIndex, isConnected } = useVial();
+    const transparentKeyGlyph = KEYMAP["KC_TRNS"]?.str || "▽";
     const { clearSelection } = useKeyBinding();
     const { queue } = useChanges();
     const { activePanel } = usePanels();
@@ -564,7 +565,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
                                 }}
                                 disabled={activePanel === "matrixtester" || isTransparencyRestoring}
                                 className={cn(
-                                    "p-1.5 rounded-full transition-colors flex-shrink-0 ml-[-4px]",
+                                    "w-8 h-8 rounded-full transition-colors flex-shrink-0 ml-[-4px] flex items-center justify-center",
                                     activePanel === "matrixtester"
                                         ? "text-gray-400 cursor-not-allowed opacity-30"
                                         : isTransparencyActive
@@ -574,10 +575,12 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
                                 )}
                                 aria-label={isTransparencyActive ? "Show Transparent Keys" : "Hide Transparent Keys"}
                             >
-                                <MicroscopeIcon className={cn(
-                                    "h-4 w-4",
+                                <span className={cn(
+                                    "text-base leading-none font-semibold translate-y-[1px]",
                                     isTransparencyActive ? "text-kb-gray" : "text-black"
-                                )} />
+                                )}>
+                                    {transparentKeyGlyph}
+                                </span>
                             </button>
                         </TooltipTrigger>
                         <TooltipContent side="top">
