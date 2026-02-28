@@ -388,7 +388,10 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     const active3DIndicatorColor = isLayerActive ? (keyTextColorHex || layerHeaderTextColor) : layerHeaderTextColor;
     const useKeyTextColorFor3DLabel = isLayerActive
         ? !!layerTextColorClass
-        : !!layerTextColorClass && layerTextColorClass !== "text-white";
+        : !!layerTextColorClass && layerTextColorClass !== "text-white" && layerTextColorClass !== "text-gray-200";
+    const inactiveGrayTextLabelOverride = !isLayerActive && layerTextColorClass === "text-gray-200"
+        ? "#000000"
+        : undefined;
     const isDefaultLayer = selectedLayer === 0;
     const showStatusRing = isDefaultLayer || isLayerActive;
     const useInsetDotStyle = isLayerActive && !isDefaultLayer;
@@ -494,7 +497,9 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                         )}
                         data-layer-label="true"
                         style={{
-                            color: useKeyTextColorFor3DLabel ? undefined : active3DIndicatorColor,
+                            color: useKeyTextColorFor3DLabel
+                                ? undefined
+                                : (inactiveGrayTextLabelOverride ?? active3DIndicatorColor),
                             left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize + 24,
                             top: ((clusterBounds!.minY + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize + 8 + LAYER_LABEL_PREPROJECTION_Y_SHIFT_PX,
                         }}
