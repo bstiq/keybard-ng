@@ -40,15 +40,16 @@ import { EditorControls } from "./EditorControls";
 const EditorLayout = () => {
     const { assignKeycodeTo } = useKeyBinding();
 
-    const handleUnhandledDrop = React.useCallback((item: DragItem) => {
+    const handleUnhandledDrop = React.useCallback((item: DragItem, event: MouseEvent) => {
         if (item.row !== undefined && item.col !== undefined && item.layer !== undefined) {
-            console.log("Unhandled drop for keyboard key, assigning KC_NO", item);
+            const targetKeycode = event.altKey ? "KC_TRNS" : "KC_NO";
+            console.log(`Unhandled drop for keyboard key, assigning ${targetKeycode}`, item);
             assignKeycodeTo({
                 type: "keyboard",
                 row: item.row,
                 col: item.col,
                 layer: item.layer
-            }, "KC_NO");
+            }, targetKeycode);
         }
     }, [assignKeycodeTo]);
 
