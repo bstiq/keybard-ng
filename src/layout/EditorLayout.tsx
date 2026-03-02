@@ -73,7 +73,17 @@ const EditorLayoutInner = () => {
     const { keyboard, setKeyboard, updateKey /*, resetToOriginal*/ } = useVial();
     const { selectedLayer, setSelectedLayer } = useLayer();
     const { clearSelection } = useKeyBinding();
-    const { keyVariant, layoutMode, setSecondarySidebarOpen, setPrimarySidebarExpanded, registerPrimarySidebarControl, setMeasuredDimensions, is3DMode, fingerClusterSqueeze } = useLayoutSettings();
+    const {
+        keyVariant,
+        layoutMode,
+        setSecondarySidebarOpen,
+        setPrimarySidebarExpanded,
+        registerPrimarySidebarControl,
+        setMeasuredDimensions,
+        is3DMode,
+        fingerClusterSqueeze,
+        isThumb3DOffsetActive,
+    } = useLayoutSettings();
     const { layerClipboard, copyLayer, openPasteDialog } = useLayoutLibrary();
     const { isDragging, draggedItem, markDropConsumed } = useDrag();
 
@@ -893,6 +903,7 @@ const EditorLayoutInner = () => {
                                                 keyVariant={keyVariant}
                                                 keyboardLayout={keyboardLayout}
                                                 fingerClusterSqueeze={fingerClusterSqueeze}
+                                                isThumb3DOffsetActive={isThumb3DOffsetActive}
                                                 stepYValue={stepYValue}
                                                 primaryStackIndex={0}
                                                 deferRender={deferGuidesRender}
@@ -1162,6 +1173,7 @@ const GuideLines = ({
     keyVariant,
     keyboardLayout,
     fingerClusterSqueeze,
+    isThumb3DOffsetActive,
     stepYValue,
     primaryStackIndex,
     deferRender = false
@@ -1171,6 +1183,7 @@ const GuideLines = ({
     keyVariant: string,
     keyboardLayout: any,
     fingerClusterSqueeze: number,
+    isThumb3DOffsetActive: boolean,
     stepYValue: number,
     primaryStackIndex: number,
     deferRender?: boolean
@@ -1195,6 +1208,7 @@ const GuideLines = ({
     const overlayRef = React.useRef<HTMLDivElement | null>(null);
     const [guidePointsPx, setGuidePointsPx] = React.useState<Array<{ x: number; y: number; label: string; isBottom: boolean }>>([]);
     const [svgSize, setSvgSize] = React.useState({ width: 0, height: 0 });
+    const [thumbGuideShiftPx, setThumbGuideShiftPx] = React.useState({ x: 0, y: 0 });
 
     const findKeyByXY = (x: number, y: number) => {
         let best: { x: number; y: number; w: number; h: number } | null = null;
@@ -1211,16 +1225,45 @@ const GuideLines = ({
         return bestDist <= 0.75 ? best : null;
     };
 
-    const clusterTopKeys = [
-        { x: 1, y: 1.5, label: "L1" },    // Q
-        { x: 3.5, y: 0, label: "L2" },    // W
-        { x: 7, y: 0, label: "L3" },      // E
-        { x: 9.5, y: 1.5, label: "L4" },  // R
-        { x: 13.8, y: 1.5, label: "R1" }, // U
-        { x: 16.3, y: 0, label: "R2" },   // I
-        { x: 19.8, y: 0, label: "R3" },   // O
-        { x: 22.3, y: 1.5, label: "R4" }, // P
-    ];
+    const clusterTopKeys = React.useMemo(() => {
+        const fingerAnchors = [
+            { x: 1, y: 1.5, label: "L1" },    // Q
+            { x: 3.5, y: 0, label: "L2" },    // W
+            { x: 7, y: 0, label: "L3" },      // E
+            { x: 9.5, y: 1.5, label: "L4" },  // R
+            { x: 13.8, y: 1.5, label: "R1" }, // U
+            { x: 16.3, y: 0, label: "R2" },   // I
+            { x: 19.8, y: 0, label: "R3" },   // O
+            { x: 22.3, y: 1.5, label: "R4" }, // P
+        ];
+
+        type LayoutKey = { x: number; y: number; w: number; h: number };
+        const keys = Object.values(keyboardLayout) as LayoutKey[];
+        const thumbKeys = keys.filter((k) => k.y >= 5);
+        if (thumbKeys.length === 0) return fingerAnchors;
+
+        const nearestThumb = (targetX: number, targetY: number): LayoutKey | null => {
+            let best: LayoutKey | null = null;
+            let bestDist = Infinity;
+            thumbKeys.forEach((k) => {
+                const d = Math.abs(k.x - targetX) + Math.abs(k.y - targetY);
+                if (d < bestDist) {
+                    bestDist = d;
+                    best = k;
+                }
+            });
+            return best;
+        };
+
+        const leftThumb = nearestThumb(9.5, 5);   // expected CAPS center key
+        const rightThumb = nearestThumb(13.8, 5); // expected MO center key
+
+        const thumbAnchors: Array<{ x: number; y: number; label: string }> = [];
+        if (leftThumb) thumbAnchors.push({ x: leftThumb.x, y: leftThumb.y, label: "LT" });
+        if (rightThumb) thumbAnchors.push({ x: rightThumb.x, y: rightThumb.y, label: "RT" });
+
+        return [...fingerAnchors, ...thumbAnchors];
+    }, [keyboardLayout]);
 
     React.useLayoutEffect(() => {
         const overlayEl = overlayRef.current;
@@ -1368,15 +1411,30 @@ const GuideLines = ({
                 const el = getKeyEl(kbEl, key);
                 if (!el) return null;
                 const quad = el ? getQuad(el) : null;
-                if (!quad) return null;
-                const pts = quadPoints(quad);
-                const topEdge = pickTopEdge(quadEdges(pts));
-                const edge = orderByX(topEdge.a, topEdge.b);
+                let edge: { left: { x: number; y: number }; right: { x: number; y: number } };
+
+                if (quad) {
+                    const pts = quadPoints(quad);
+                    const topEdge = pickTopEdge(quadEdges(pts));
+                    edge = orderByX(topEdge.a, topEdge.b);
+                } else {
+                    return null;
+                }
 
                 const { left, right } = edge;
                 return {
                     left: { x: left.x - overlayRect.left, y: left.y - overlayRect.top },
                     right: { x: right.x - overlayRect.left, y: right.y - overlayRect.top },
+                };
+            };
+
+            const getProjectedThumbShift = (scaleX = 1) => {
+                if (!isThumb3DOffsetActive) return { x: 0, y: 0 };
+                const base = projectPoint(0, 0, 0);
+                const shifted = projectPoint(0, 900, 0);
+                return {
+                    x: (shifted.x - base.x) * scaleX,
+                    y: shifted.y - base.y,
                 };
             };
 
@@ -1439,7 +1497,8 @@ const GuideLines = ({
                 const zEnd = zTop + zBottom;
 
                 if (side === "top") {
-                    const primaryTopEdge = getActualTopEdge(keyboardEl, key.x, key.y);
+                    const isThumbGuide = label === "LT" || label === "RT";
+                    const primaryTopEdge = isThumbGuide ? null : getActualTopEdge(keyboardEl, key.x, key.y);
 
                     const projectedTopLeft = projectPoint(leftX, topY, zTop);
                     const projectedTopRight = projectPoint(rightX, topY, zTop);
@@ -1502,6 +1561,7 @@ const GuideLines = ({
 
             if (usedMeasuredTopEdges) {
                 setGuidePointsPx(points);
+                setThumbGuideShiftPx(getProjectedThumbShift());
                 return;
             }
 
@@ -1518,10 +1578,12 @@ const GuideLines = ({
                     x: l2Actual.left.x + (p.x - calcLeft.x) * scaleX,
                     y: p.y + dy,
                 })));
+                setThumbGuideShiftPx(getProjectedThumbShift(scaleX));
                 return;
             }
 
             setGuidePointsPx(points);
+            setThumbGuideShiftPx(getProjectedThumbShift());
         };
 
         const handleResize = () => requestAnimationFrame(measure);
@@ -1540,8 +1602,6 @@ const GuideLines = ({
 
         const settleTimer = window.setTimeout(handleResize, 220);
         window.addEventListener('resize', handleResize);
-        // Keep trapezoids aligned when scrolling inside overflow containers.
-        document.addEventListener('scroll', handleResize, true);
         measure();
 
         return () => {
@@ -1554,9 +1614,8 @@ const GuideLines = ({
 
             ro.disconnect();
             window.removeEventListener('resize', handleResize);
-            document.removeEventListener('scroll', handleResize, true);
         };
-    }, [keyboardLayout, keyVariant, numLayers, lastViewId, fingerClusterSqueeze, stepYValue, primaryStackIndex, useFragmentLayout, unitSize, layoutMidline]);
+    }, [keyboardLayout, keyVariant, numLayers, lastViewId, fingerClusterSqueeze, isThumb3DOffsetActive, stepYValue, primaryStackIndex, useFragmentLayout, unitSize, layoutMidline]);
 
     // Spacing between layers in screen pixels
     const svgWidth = svgSize.width || 1;
@@ -1592,12 +1651,18 @@ const GuideLines = ({
 
                         return Array.from(clusters.entries()).map(([cluster, pts]) => {
                             if (!pts.top1 || !pts.top2 || !pts.bottom1 || !pts.bottom2) return null;
+                            const isThumbGuide = cluster === "LT" || cluster === "RT";
                             const d = `M ${pts.top1.x} ${pts.top1.y} L ${pts.top2.x} ${pts.top2.y} L ${pts.bottom2.x} ${pts.bottom2.y} L ${pts.bottom1.x} ${pts.bottom1.y} Z`;
                             return (
                                 <path
                                     key={`trap-${cluster}`}
                                     d={d}
                                     fill="rgba(148, 163, 184, 0.2)"
+                                    style={isThumbGuide ? {
+                                        transform: `translate(${thumbGuideShiftPx.x}px, ${thumbGuideShiftPx.y}px)`,
+                                        transformOrigin: "0 0",
+                                        transition: "transform 300ms ease-in-out",
+                                    } : undefined}
                                 />
                             );
                         });
