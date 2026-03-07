@@ -576,9 +576,9 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                     height: `${keyboardSize.height}px`,
                 }}
             >
-                {is3DMode && show3DBackdrop && clusterBounds && (
+                {show3DBackdrop && clusterBounds && (
                     <div
-                        className="absolute"
+                        className="absolute transition-opacity duration-500"
                         data-layer-backdrop="true"
                         style={{
                             left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize,
@@ -592,42 +592,63 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                             mixBlendMode: "multiply",
                             zIndex: -1,
                             pointerEvents: "none",
+                            opacity: is3DMode ? 1 : 0,
                         }}
                     >
                     </div>
                 )}
-                {is3DMode && show3DBackdrop && clusterBounds && (
-                    <div
-                        className={cn(
-                            "absolute text-lg font-normal select-none flex items-center gap-2",
-                            useKeyTextColorFor3DLabel && layerTextColorClass
-                        )}
-                        data-layer-label="true"
-                        style={{
-                            color: useKeyTextColorFor3DLabel
-                                ? undefined
-                                : (inactiveGrayTextLabelOverride ?? active3DIndicatorColor),
-                            left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize + 24,
-                            top: ((clusterBounds!.minY + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize + 8 + LAYER_LABEL_PREPROJECTION_Y_SHIFT_PX,
-                        }}
-                    >
-                        <span
-                            className="relative w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                            style={showStatusRing ? { border: `2px solid ${active3DIndicatorColor}` } : undefined}
+                {show3DBackdrop && clusterBounds && (() => {
+                    // Scale label offsets proportionally to key size so alignment works at all sizes.
+                    const sizeRatio = currentUnitSize / UNIT_SIZE;
+                    const labelPadX = 24 * sizeRatio;
+                    const labelPadY = 8 * sizeRatio;
+                    const labelYShift = LAYER_LABEL_PREPROJECTION_Y_SHIFT_PX * sizeRatio;
+                    const indicatorSize = Math.round(28 * sizeRatio);
+                    const dotSize = Math.round(18 * sizeRatio);
+                    const fontSize = Math.max(12, Math.round(18 * sizeRatio));
+                    return (
+                        <div
+                            className={cn(
+                                "absolute font-normal select-none flex items-center gap-2 transition-opacity duration-500",
+                                useKeyTextColorFor3DLabel && layerTextColorClass
+                            )}
+                            data-layer-label="true"
+                            style={{
+                                color: useKeyTextColorFor3DLabel
+                                    ? undefined
+                                    : (inactiveGrayTextLabelOverride ?? active3DIndicatorColor),
+                                left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize + labelPadX,
+                                top: ((clusterBounds!.minY + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize + labelPadY + labelYShift,
+                                fontSize: `${fontSize}px`,
+                                opacity: is3DMode ? 1 : 0,
+                            }}
                         >
                             <span
-                                className="w-[18px] h-[18px] rounded-full shadow-sm"
-                                style={useInsetDotStyle
-                                    ? {
-                                        backgroundColor: "transparent",
-                                        boxShadow: `inset 0 0 0 6px ${active3DIndicatorColor}`,
-                                    }
-                                    : { backgroundColor: active3DIndicatorColor }}
-                            />
-                        </span>
-                        <span>{layerDisplayName}</span>
-                    </div>
-                )}
+                                className="relative rounded-full flex items-center justify-center flex-shrink-0"
+                                style={{
+                                    width: `${indicatorSize}px`,
+                                    height: `${indicatorSize}px`,
+                                    ...(showStatusRing ? { border: `2px solid ${active3DIndicatorColor}` } : {}),
+                                }}
+                            >
+                                <span
+                                    className="rounded-full shadow-sm"
+                                    style={{
+                                        width: `${dotSize}px`,
+                                        height: `${dotSize}px`,
+                                        ...(useInsetDotStyle
+                                            ? {
+                                                backgroundColor: "transparent",
+                                                boxShadow: `inset 0 0 0 ${Math.round(6 * sizeRatio)}px ${active3DIndicatorColor}`,
+                                            }
+                                            : { backgroundColor: active3DIndicatorColor }),
+                                    }}
+                                />
+                            </span>
+                            <span>{layerDisplayName}</span>
+                        </div>
+                    );
+                })()}
                 {is3DMode && show3DBackdrop && clusterBounds && thumbClusterBounds && (
                     <div
                         className="absolute"

@@ -106,6 +106,7 @@ const EditorLayoutInner = () => {
     const [isLayerOrderReversed, setIsLayerOrderReversed] = React.useState(false);
     const layerSpacingAdjust = 410;
     const [baseBadgeOffsetY, setBaseBadgeOffsetY] = React.useState<number | null>(null);
+    const [isBaseMeasured, setIsBaseMeasured] = React.useState(false);
     // UI-only layer on/off state. TODO: replace with device-provided layer state when available.
     const [layerActiveState, setLayerActiveState] = React.useState<boolean[]>([]);
     const [transparencyByLayer, setTransparencyByLayer] = React.useState<Record<number, boolean>>({});
@@ -912,7 +913,7 @@ const EditorLayoutInner = () => {
                 <div
                     className={cn(
                         "flex-1 overflow-y-auto flex flex-col items-center max-w-full relative",
-                        isMultiLayersActive && "pt-12"
+                        isMultiLayersActive && !is3DMode && "pt-12"
                     )}
                     ref={viewsScrollRef}
                 >
@@ -1016,7 +1017,11 @@ const EditorLayoutInner = () => {
                                                                 stackIndex={stackIndex}
                                                                 layerSpacingPx={effectiveLayerSpacing}
                                                                 baseBadgeOffsetY={baseBadgeOffsetY}
-                                                                onBaseBadgeOffsetY={view.id === "primary" ? setBaseBadgeOffsetY : undefined}
+                                                                isBaseMeasured={isBaseMeasured}
+                                                                onBaseBadgeOffsetY={view.id === "primary" ? (offset: number | null) => {
+                                                                    setBaseBadgeOffsetY(offset);
+                                                                    if (offset !== null) setIsBaseMeasured(true);
+                                                                } : undefined}
                                                             />
                                                         </div>
                                                     </div>

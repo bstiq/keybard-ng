@@ -50,6 +50,7 @@ interface KeyboardViewInstanceProps {
     layerSpacingPx?: number;
     baseBadgeOffsetY?: number | null;
     onBaseBadgeOffsetY?: (offset: number | null) => void;
+    isBaseMeasured?: boolean;
 }
 
 /**
@@ -82,6 +83,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     layerSpacingPx = 0,
     baseBadgeOffsetY = null,
     onBaseBadgeOffsetY,
+    isBaseMeasured = false,
 }) => {
     const { keyboard, updateKey, setKeyboard, activeLayerIndex, isConnected } = useVial();
     const transparentKeyGlyph = KEYMAP["KC_TRNS"]?.str || "▽";
@@ -90,19 +92,34 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     const { activePanel } = usePanels();
     const { is3DMode, keyVariant } = useLayoutSettings();
     const badgeRowRef = useRef<HTMLDivElement | null>(null);
-    const [badgeOffsetY, setBadgeOffsetY] = useState(0);
+    const [badgeOffsetY, setBadgeOffsetY] = useState(is3DMode ? (baseBadgeOffsetY ?? 450) : 0);
+    // Suppress CSS transitions until the first real DOM measurement completes (prevents bounce).
+    const hasMeasured = useRef(false);
+    // Cache the primary badge offset so it doesn't shift between single ↔ multi toggles.
+    const cachedBaseOffset = useRef<number | null>(null);
+    // Track multi-layer toggle direction for entry/exit animations.
+    const prevMultiLayersActiveRef = useRef(isMultiLayersActive);
+    // Non-primary layers start invisible and animate in.
+    const [layerAnimatingIn, setLayerAnimatingIn] = useState(!isPrimary && isMultiLayersActive);
+    const was3DRef = useRef(is3DMode);
+    const prevStackIndexRef = useRef(stackIndex);
 
     useLayoutEffect(() => {
         if (!is3DMode) {
             setBadgeOffsetY(0);
-            if (stackIndex === 0) onBaseBadgeOffsetY?.(null);
+            hasMeasured.current = false;
+            if (stackIndex === 0) {
+                onBaseBadgeOffsetY?.(null);
+                cachedBaseOffset.current = null;
+            }
             return;
         }
 
         if (stackIndex === 0) {
-            // Immediately set a guestimate so the animation starts at the same time as the keys.
-            // Standard offset for the tilted keyboard is around 450-480px.
-            if (badgeOffsetY === 0) setBadgeOffsetY(450);
+            // Use the cached real offset if we have one, otherwise use a guestimate.
+            // The transition is suppressed (via hasMeasured) so neither value causes visible bounce.
+            const initialOffset = cachedBaseOffset.current ?? 450;
+            setBadgeOffsetY(initialOffset);
         }
 
         if (stackIndex !== 0) return;
@@ -115,12 +132,34 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             if (!labelEl) return;
             const badgeRect = badgeEl.getBoundingClientRect();
             const labelRect = labelEl.getBoundingClientRect();
-            const badgeCenter = badgeRect.top + (badgeRect.height / 2);
-            const labelCenter = labelRect.top + (labelRect.height / 2);
-            const baseOffset = labelCenter - badgeCenter;
 
-            onBaseBadgeOffsetY?.(baseOffset);
-            setBadgeOffsetY(baseOffset);
+            // Using computed style instead of inline style ensures we get the current state 
+            // of any ongoing transition, which prevents measurement-feedback-loops (yoyo).
+            const computedTransform = window.getComputedStyle(badgeEl).transform;
+            let currentTranslateY = 0;
+            if (computedTransform && computedTransform !== 'none') {
+                const matrix = new DOMMatrix(computedTransform);
+                currentTranslateY = matrix.m42;
+            }
+
+            const badgeNaturalCenter = (badgeRect.top + badgeRect.height / 2) - currentTranslateY;
+            const labelCenter = labelRect.top + (labelRect.height / 2);
+            const desiredOffset = labelCenter - badgeNaturalCenter;
+
+            // Only update if significantly different from cached (avoids micro-shifts on re-measure)
+            const cached = cachedBaseOffset.current;
+            if (cached === null || Math.abs(desiredOffset - cached) > 2) {
+                cachedBaseOffset.current = desiredOffset;
+                onBaseBadgeOffsetY?.(desiredOffset);
+                setBadgeOffsetY(desiredOffset);
+            }
+
+            // Enable transitions after the very first real measurement settles.
+            if (!hasMeasured.current) {
+                requestAnimationFrame(() => {
+                    hasMeasured.current = true;
+                });
+            }
         };
 
         const rafId = requestAnimationFrame(measureBase);
@@ -131,18 +170,23 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             window.clearTimeout(settleTimer);
             window.removeEventListener('resize', measureBase);
         };
-    }, [is3DMode, stackIndex, keyVariant, onBaseBadgeOffsetY]);
+    }, [is3DMode, stackIndex, keyVariant, onBaseBadgeOffsetY, isBaseMeasured]);
+
+    useEffect(() => {
+        was3DRef.current = is3DMode;
+    }, [is3DMode]);
 
     useLayoutEffect(() => {
         if (!is3DMode || stackIndex === 0) return;
 
         const stepYValue = layerSpacingPx * 0.8192;
-        const projectedShift = isMultiLayersActive ? (-stackIndex * stepYValue) : 0;
+        // During the animation-in phase, use 0 shift so it starts perfectly at the primary badge's layer.
+        const projectedShift = (isMultiLayersActive && !layerAnimatingIn) ? (-stackIndex * stepYValue) : 0;
 
-        // Use guestimate if parent hasn't shared real value yet, prevents badges flying to 0
-        const effectiveBase = baseBadgeOffsetY ?? 450;
+        // Use cached base or guestimate. Transition is suppressed until hasMeasured so no bounce.
+        const effectiveBase = baseBadgeOffsetY ?? cachedBaseOffset.current ?? 450;
         setBadgeOffsetY(effectiveBase + projectedShift);
-    }, [is3DMode, isMultiLayersActive, stackIndex, baseBadgeOffsetY, layerSpacingPx]);
+    }, [is3DMode, isMultiLayersActive, layerAnimatingIn, stackIndex, baseBadgeOffsetY, layerSpacingPx]);
 
     const [isHudMode, setIsHudMode] = useState(false);
     const [suppressTransparencyHover, setSuppressTransparencyHover] = useState(false);
@@ -437,13 +481,70 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
         ? activeLayerIndex === selectedLayer
         : !!layerActiveState?.[selectedLayer];
 
+    // Layer entry/exit animation: when multi-layer activates or new layers appear,
+    // non-primary layers start at opacity 0 (stacked at Z=0) then animate to full opacity at target Z.
+    useEffect(() => {
+        const wasMultiActive = prevMultiLayersActiveRef.current;
+        prevMultiLayersActiveRef.current = isMultiLayersActive;
+
+        if (isPrimary) return;
+
+        // Entering multi-layer mode or new views appeared (show-all-layers / flip)
+        if (isMultiLayersActive && !wasMultiActive) {
+            // Start hidden, then animate in after a frame
+            setLayerAnimatingIn(true);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setLayerAnimatingIn(false);
+                });
+            });
+        } else if (!isMultiLayersActive && wasMultiActive) {
+            // Leaving multi-layer: just reset
+            setLayerAnimatingIn(false);
+        }
+    }, [isMultiLayersActive, isPrimary]);
+
+    // Also animate newly appearing layers (e.g. show-all-layers toggle adds more views)
+    useEffect(() => {
+        if (isPrimary || !isMultiLayersActive) return;
+        // Detect if this is a freshly mounted non-primary view by tracking stackIndex > 0
+        if (stackIndex > 0 && layerAnimatingIn) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setLayerAnimatingIn(false);
+                });
+            });
+        }
+    }, [stackIndex, isPrimary, isMultiLayersActive]);
+
+    // Animate when the stack order changes (e.g. "Flip Layer View")
+    useEffect(() => {
+        if (!isPrimary && isMultiLayersActive && prevStackIndexRef.current !== stackIndex) {
+            // Trigger the "flying from primary" animation
+            setLayerAnimatingIn(true);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setLayerAnimatingIn(false);
+                });
+            });
+        }
+        prevStackIndexRef.current = stackIndex;
+    }, [stackIndex, isPrimary, isMultiLayersActive]);
+
     return (
         <div
             ref={containerRef}
             className="w-full flex-shrink-0 pointer-events-none"
             style={{
-                opacity: (isRevealing || isHiding) ? 0 : 1,
-                transition: 'opacity 200ms ease-in-out',
+                opacity: (isRevealing || isHiding || (!isPrimary && is3DMode && isMultiLayersActive && layerAnimatingIn)) ? 0 : 1,
+                // During animation-in, pull the layer UP by exactly its DOM stack height
+                // so it starts perfectly overlapped with the primary layer, then animates DOWN.
+                transform: (is3DMode && isMultiLayersActive && layerAnimatingIn) 
+                            ? `translateY(calc(-100% * ${stackIndex}))` 
+                            : 'translateY(0)',
+                transition: (is3DMode || was3DRef.current) 
+                    ? 'opacity 500ms ease-in-out, transform 500ms ease-in-out'
+                    : 'opacity 200ms ease-in-out',
             }}
         >
             {/* Layer Controls Row: Hide-blank-layers toggle + layer tabs + (optional) remove button */}
@@ -541,8 +642,17 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             {/* Layer Name Badge Row */}
             <div
                 ref={badgeRowRef}
-                className="pl-5 pt-[7px] pb-2 flex items-center gap-2 pointer-events-auto transition-transform duration-500 ease-in-out"
-                style={{ transform: is3DMode ? `translateY(${badgeOffsetY}px)` : 'translateY(0px)' }}
+                className="pl-5 pt-[7px] pb-2 flex items-center gap-2 pointer-events-auto"
+                style={{
+                    transform: is3DMode ? `translateY(${badgeOffsetY}px)` : 'translateY(0px)',
+                    // transitions are active in 3D mode, and also while switching TO/FROM 3D.
+                    // However, we suppress them after the first 3D measurement to hide the "correction jump".
+                    transition: (is3DMode || was3DRef.current) && (hasMeasured.current || (was3DRef.current !== is3DMode))
+                        ? 'transform 500ms ease-in-out' 
+                        : (is3DMode && !hasMeasured.current && !isPrimary && isBaseMeasured)
+                            ? 'transform 500ms ease-in-out' 
+                            : 'none',
+                }}
             >
                 <div style={{ marginLeft: -20 }}>
                     <LayerNameBadge
@@ -607,13 +717,14 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             >
                 <div
                     className={cn(
-                        "transition-transform duration-500 ease-in-out pointer-events-none",
+                        "pointer-events-none",
                         is3DMode && "keyboard-3d-active"
                     )}
                     style={{
                         transform: is3DMode
-                            ? `rotateX(55deg) rotateZ(-45deg) translateZ(${isMultiLayersActive ? (stackIndex * layerSpacingPx) : 0}px)`
-                            : undefined
+                            ? `rotateX(55deg) rotateZ(-45deg) translateZ(${isMultiLayersActive && !layerAnimatingIn ? (stackIndex * layerSpacingPx) : 0}px)`
+                            : 'rotateX(0deg) rotateZ(0deg) translateZ(0px)',
+                        transition: 'transform 500ms ease-in-out',
                     }}
                 >
                     <Keyboard
