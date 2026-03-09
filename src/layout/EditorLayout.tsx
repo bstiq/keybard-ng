@@ -38,6 +38,8 @@ import { MATRIX_COLS } from "@/constants/svalboard-layout";
 import EditorSidePanel, { PickerMode } from "./SecondarySidebar/components/EditorSidePanel";
 import { InfoPanelWidget } from "@/components/InfoPanelWidget";
 import { EditorControls } from "./EditorControls";
+import { getBackdropLayerFromElements } from "@/utils/layer-drop-target";
+import { svalService } from "@/services/sval.service";
 
 const EditorLayout = () => {
     const { assignKeycodeTo } = useKeyBinding();
@@ -596,8 +598,8 @@ const EditorLayoutInner = () => {
     }, [layerClipboard, openPasteDialog]);
 
     const getLayerName = React.useCallback((layerIndex: number) => {
-        if (!keyboard?.cosmetic?.layer) return `Layer ${layerIndex}`;
-        return keyboard.cosmetic.layer[String(layerIndex)] || `Layer ${layerIndex}`;
+        if (!keyboard) return `Layer ${layerIndex}`;
+        return svalService.getLayerName(keyboard, layerIndex);
     }, [keyboard]);
 
     const applyLayerToTarget = React.useCallback((sourceLayer: LayerEntry, targetLayer: number) => {
@@ -684,6 +686,14 @@ const EditorLayoutInner = () => {
         setHoveredDropLayer(layer);
     }, [isDraggingLayer]);
 
+    const getLayerDropTargetAtPoint = React.useCallback((clientX: number, clientY: number) => {
+        if (!isDraggingLayer) return null;
+
+        return getBackdropLayerFromElements(
+            document.elementsFromPoint(clientX, clientY) as HTMLElement[],
+        );
+    }, [isDraggingLayer]);
+
     const handleLayerDrop = React.useCallback((targetLayer: number) => {
         if (!isDraggingLayer || !draggedItem?.layerData) return;
         markDropConsumed();
@@ -701,6 +711,31 @@ const EditorLayoutInner = () => {
             setHoveredDropLayer(null);
         }
     }, [isDraggingLayer]);
+
+    React.useEffect(() => {
+        if (!isDraggingLayer || !is3DMode) return;
+
+        const handleMouseMove = (event: MouseEvent) => {
+            setHoveredDropLayer(getLayerDropTargetAtPoint(event.clientX, event.clientY));
+        };
+
+        const handleMouseUp = (event: MouseEvent) => {
+            const targetLayer = getLayerDropTargetAtPoint(event.clientX, event.clientY);
+            if (targetLayer !== null) {
+                handleLayerDrop(targetLayer);
+            } else {
+                setHoveredDropLayer(null);
+            }
+        };
+
+        window.addEventListener('mousemove', handleMouseMove, true);
+        window.addEventListener('mouseup', handleMouseUp, true);
+
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove, true);
+            window.removeEventListener('mouseup', handleMouseUp, true);
+        };
+    }, [isDraggingLayer, is3DMode, getLayerDropTargetAtPoint, handleLayerDrop]);
 
     const handleDragReplaceConfirm = React.useCallback(() => {
         if (!pendingLayerDrop) return;

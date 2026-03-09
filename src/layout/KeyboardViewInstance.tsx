@@ -275,6 +275,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
     if (!keyboard) return null;
 
     const isLayoutDropTarget = isLayerDragActive && hoveredDropLayer === selectedLayer;
+    const isLayerDropSurfaceActive = isLayerDragActive && !is3DMode;
 
     const handleDropHoverEnter = () => {
         if (!isLayerDragActive) return;
@@ -725,7 +726,12 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
             )}
 
             <div
-                className="pointer-events-auto rounded-lg"
+                data-layer-drop-surface={selectedLayer}
+                data-drop-surface-active={isLayerDropSurfaceActive ? "true" : "false"}
+                className={cn(
+                    "rounded-lg",
+                    isLayerDropSurfaceActive ? "pointer-events-auto" : "pointer-events-none"
+                )}
                 onMouseEnter={handleDropHoverEnter}
                 onMouseLeave={handleDropHoverLeave}
                 onMouseUp={handleDropOnLayer}
@@ -830,6 +836,7 @@ const KeyboardViewInstance: FC<KeyboardViewInstanceProps> = ({
                             isConnected={isConnected}
                             isToggling3D={isToggling3D}
                             showDropTargetHighlight={isLayoutDropTarget}
+                            isLayerDragActive={isLayerDragActive}
                         />
                     </div>
                 </div>

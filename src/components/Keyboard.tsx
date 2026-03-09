@@ -48,6 +48,7 @@ interface KeyboardProps {
     isConnected?: boolean;
     isToggling3D?: boolean;
     showDropTargetHighlight?: boolean;
+    isLayerDragActive?: boolean;
 }
 
 /**
@@ -65,6 +66,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
     activeLayerIndex,
     isToggling3D = false,
     showDropTargetHighlight = false,
+    isLayerDragActive = false,
 }) => {
     const {
         selectKeyboardKey,
@@ -475,6 +477,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
         const appliedOpacity = isActiveLayerBackdrop ? 0.65 : backdropOpacity;
         return `rgba(${r}, ${g}, ${b}, ${appliedOpacity})`;
     }, [keyboard.cosmetic, selectedLayer, backdropOpacity, isActiveLayerBackdrop]);
+    const isBackdropDropTargetActive = is3DMode && isLayerDragActive;
 
     const layerDisplayName = useMemo(() => {
         return svalService.getLayerName(keyboard, selectedLayer);
@@ -583,6 +586,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                     <div
                         className="absolute transition-opacity duration-500"
                         data-layer-backdrop="true"
+                        data-layer-index={selectedLayer}
                         style={{
                             left: ((clusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize,
                             top: ((clusterBounds!.minY + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize,
@@ -594,7 +598,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                             background: layerBackdropColor,
                             mixBlendMode: "multiply",
                             zIndex: -1,
-                            pointerEvents: "none",
+                            pointerEvents: isBackdropDropTargetActive ? "auto" : "none",
                             opacity: is3DMode ? 1 : 0,
                         }}
                     >
@@ -656,6 +660,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                     <div
                         className="absolute"
                         data-layer-backdrop="true"
+                        data-layer-index={selectedLayer}
                         style={{
                             left: ((thumbClusterBounds!.minX + layoutOffsets.offsetX) * currentUnitSize) - currentUnitSize,
                             top: ((thumbClusterBounds!.minY + thumbBackdropNonOverlapPushUnits + layoutOffsets.offsetY) * currentUnitSize) - currentUnitSize,
@@ -664,7 +669,7 @@ export const Keyboard: React.FC<KeyboardProps> = ({
                             background: layerBackdropColor,
                             mixBlendMode: "multiply",
                             zIndex: -1,
-                            pointerEvents: "none",
+                            pointerEvents: isBackdropDropTargetActive ? "auto" : "none",
                             transform: (is3DMode && isThumb3DOffsetActive) ? "translateY(900px)" : undefined,
                             transition: KEY_3D_MOTION_TRANSITION,
                         }}
