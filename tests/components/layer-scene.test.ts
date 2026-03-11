@@ -30,7 +30,7 @@ describe("layer scene pose helper", () => {
     expect(preSpreadPose.translateZ).toBe(0);
     expect(preSpreadPose.projectedY).toBe(0);
     expect(preSpreadPose.opacity).toBe(0);
-    expect(preSpreadPose.rootTranslateY).toBe(-656);
+    expect(preSpreadPose.rootTranslateY).toBe(0);
 
     expect(spreadPose.translateZ).toBe(820);
     expect(spreadPose.projectedY).toBeCloseTo(-671.744, 3);

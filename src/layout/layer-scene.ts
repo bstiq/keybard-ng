@@ -107,7 +107,7 @@ export const getLayerScenePose = ({
             };
         case "multi3d_pre_spread":
             return {
-                rootTranslateY: isPrimary ? 0 : collapsedRootTranslateY,
+                rootTranslateY: 0,
                 translateZ: 0,
                 rotateX: THREE_D_ROTATE_X,
                 rotateZ: THREE_D_ROTATE_Z,
@@ -129,7 +129,7 @@ export const getLayerScenePose = ({
             };
         case "multi3d_rotating_in":
             return {
-                rootTranslateY: collapsedRootTranslateY,
+                rootTranslateY: 0,
                 translateZ: 0,
                 rotateX: THREE_D_ROTATE_X,
                 rotateZ: THREE_D_ROTATE_Z,

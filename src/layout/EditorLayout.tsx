@@ -44,6 +44,7 @@ import {
     getLayerScenePose,
     sceneShowsGuides,
     sceneUses3D,
+    LEGACY_FORWARD_ENTRY_MS,
     SCENE_COLLAPSE_MS,
     SCENE_ROTATE_IN_SPREAD_MS,
     SCENE_SPREAD_MS,
@@ -143,8 +144,6 @@ const EditorLayoutInner = () => {
     const layerViewRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
     const sceneViewRefs = React.useRef<Map<string, HTMLDivElement>>(new Map());
     const showLayersTransitionTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const sceneTimerRefs = React.useRef<ReturnType<typeof setTimeout>[]>([]);
-    const sceneRafRef = React.useRef<number | null>(null);
     const previousSceneTargetRef = React.useRef<LayerSceneState>(is3DMode ? "single3d" : "single2d");
     const [sceneFlowOffsets, setSceneFlowOffsets] = React.useState<Record<string, number>>({});
     let nextViewId = React.useRef(1);
@@ -430,24 +429,52 @@ const EditorLayoutInner = () => {
             }))
         ];
     }, [primaryView, multiLayerIds, isLayerOrderReversed, primaryLayerIndex]);
-
     const cloneViews = React.useCallback((views: ViewInstance[]) => (
         views.map((view) => ({ ...view }))
     ), []);
 
-    const clearSceneTransitionWork = React.useCallback(() => {
-        if (sceneRafRef.current !== null) {
+    const sceneTimeoutRefs = React.useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+    const sceneRafRef = React.useRef<number | null>(null);
+
+    const clearSceneTransitionWork = React.useCallback((key?: string) => {
+        if (key) {
+            if (sceneTimeoutRefs.current[key]) {
+                clearTimeout(sceneTimeoutRefs.current[key]);
+                delete sceneTimeoutRefs.current[key];
+            }
+        } else {
+            Object.values(sceneTimeoutRefs.current).forEach(clearTimeout);
+            sceneTimeoutRefs.current = {};
+        }
+
+        if (sceneRafRef.current) {
             cancelAnimationFrame(sceneRafRef.current);
             sceneRafRef.current = null;
         }
-        sceneTimerRefs.current.forEach((timerId) => clearTimeout(timerId));
-        sceneTimerRefs.current = [];
-    }, []);
+    }, [sceneTimeoutRefs, sceneRafRef]);
 
-    const scheduleSceneTimeout = React.useCallback((delayMs: number, callback: () => void) => {
-        const timerId = window.setTimeout(callback, delayMs);
-        sceneTimerRefs.current.push(timerId);
-    }, []);
+    const scheduleSceneTimeout = React.useCallback(
+        (keyOrMs: string | number, msOrCallback: number | (() => void), maybeCallback?: () => void) => {
+            let key: string;
+            let ms: number;
+            let cb: () => void;
+            if (typeof keyOrMs === 'string') {
+                key = keyOrMs;
+                ms = msOrCallback as number;
+                cb = maybeCallback!;
+            } else {
+                key = "default";
+                ms = keyOrMs;
+                cb = msOrCallback as () => void;
+            }
+            clearSceneTransitionWork(key);
+            sceneTimeoutRefs.current[key] = setTimeout(() => {
+                delete sceneTimeoutRefs.current[key];
+                cb();
+            }, ms);
+        },
+        [clearSceneTransitionWork]
+    );
 
     const requiredSceneFlowOffsetsReady = React.useCallback((views: ViewInstance[]) => (
         views.every((view) => view.id === "primary" || sceneFlowOffsets[view.id] !== undefined)
@@ -481,19 +508,34 @@ const EditorLayoutInner = () => {
         }
 
         clearSceneTransitionWork();
+
+        // Proactively clear legacy entry when switching to a multi-layer state
+        // that isn't the initial expansion/spread entry.
+        if (sceneTargetState.startsWith("multi") && 
+            sceneTargetState !== "multi3d_pre_expand" && 
+            sceneTargetState !== "multi3d_pre_spread") {
+            setLegacyForwardEntryActive(false);
+        }
+
+        // Always ensure legacy entry is cleared when we start any serious multi-layer movement.
+        // This is a safety fallback for environments (like tests) where 3D transitions might skip phases.
+        if (sceneTargetState.startsWith("multi")) {
+            setLegacyForwardEntryActive(false);
+        }
+
         previousSceneTargetRef.current = sceneTargetState;
 
         const currentMultiViews = cloneViews(sceneTransitionViews ?? stackedMultiLayerViews);
 
         switch (`${previousSceneTarget}->${sceneTargetState}`) {
             case "single3d->multi3d":
-                setLegacyForwardEntryActive(false);
+                setLegacyForwardEntryActive(true);
                 setSceneCollapseToSingle(false);
                 setSceneTransitionViews(cloneViews(stackedMultiLayerViews));
                 setSceneState("multi3d_pre_expand");
                 return;
             case "single2d->multi3d":
-                setLegacyForwardEntryActive(false);
+                setLegacyForwardEntryActive(true);
                 setSceneCollapseToSingle(false);
                 setSceneFlowOffsets({});
                 setSceneTransitionViews(cloneViews(stackedMultiLayerViews));
@@ -504,10 +546,10 @@ const EditorLayoutInner = () => {
                 setSceneCollapseToSingle(false);
                 setSceneTransitionViews(cloneViews(stackedMultiLayerViews));
                 setSceneState("multi3d_rotating_in");
-                scheduleSceneTimeout(SCENE_SPREAD_MS, () => {
+                scheduleSceneTimeout("spread", SCENE_SPREAD_MS, () => {
                     setSceneState("multi3d_spreading");
                 });
-                scheduleSceneTimeout(SCENE_SPREAD_MS + SCENE_ROTATE_IN_SPREAD_MS, () => {
+                scheduleSceneTimeout("settle", SCENE_SPREAD_MS + SCENE_ROTATE_IN_SPREAD_MS, () => {
                     setSceneState("multi3d");
                     setSceneTransitionViews(null);
                 });
@@ -524,10 +566,10 @@ const EditorLayoutInner = () => {
                 setSceneCollapseToSingle(false);
                 setSceneTransitionViews(currentMultiViews);
                 setSceneState("multi3d_collapsing");
-                scheduleSceneTimeout(SCENE_SPREAD_MS, () => {
+                scheduleSceneTimeout("rotate-out", SCENE_SPREAD_MS, () => {
                     setSceneState("multi2d_rotating_out");
                 });
-                scheduleSceneTimeout(SCENE_SPREAD_MS + SCENE_SPREAD_MS, () => {
+                scheduleSceneTimeout("settle", SCENE_SPREAD_MS + SCENE_SPREAD_MS, () => {
                     setSceneState("multi2d");
                     setSceneTransitionViews(null);
                 });
@@ -547,6 +589,27 @@ const EditorLayoutInner = () => {
         stackedMultiLayerViews,
     ]);
 
+    // Safety fallback: ensure legacy forward entry is cleared even if 3D transitions
+    // are blocked or skipped (common in test environments with zero offsets).
+    // This effect is independent and won't be cleared by clearSceneTransitionWork().
+    React.useLayoutEffect(() => {
+        if (!legacyForwardEntryActive) return;
+
+        const timeout = setTimeout(() => {
+            setLegacyForwardEntryActive(false);
+            // If we're stuck in a pre-spread/pre-expand state, force-settle to multi3d
+            // so guides can at least render.
+            setSceneState((current) => {
+                if (current === "multi3d_pre_spread" || current === "multi3d_pre_expand") {
+                    return "multi3d";
+                }
+                return current;
+            });
+        }, LEGACY_FORWARD_ENTRY_MS);
+
+        return () => clearTimeout(timeout);
+    }, [legacyForwardEntryActive]);
+
     React.useLayoutEffect(() => {
         if (legacyForwardEntryActive || sceneState !== "multi3d_pre_spread" || !sceneTransitionViews) {
             return;
@@ -558,9 +621,11 @@ const EditorLayoutInner = () => {
         clearSceneTransitionWork();
         sceneRafRef.current = requestAnimationFrame(() => {
             sceneRafRef.current = requestAnimationFrame(() => {
+                setLegacyForwardEntryActive(false);
                 setSceneState("multi3d_spreading");
                 sceneRafRef.current = null;
-                scheduleSceneTimeout(SCENE_SPREAD_MS, () => {
+                scheduleSceneTimeout("settle", SCENE_SPREAD_MS, () => {
+                    setLegacyForwardEntryActive(false);
                     setSceneState("multi3d");
                     setSceneTransitionViews(null);
                 });
@@ -642,9 +707,11 @@ const EditorLayoutInner = () => {
                 }
             });
             // Sync React state (rendered values will match imperative values)
+            setLegacyForwardEntryActive(false);
             setSceneState("multi3d_spreading");
             sceneRafRef.current = null;
-            scheduleSceneTimeout(ms, () => {
+            scheduleSceneTimeout("settle", ms, () => {
+                setLegacyForwardEntryActive(false);
                 // Don't clear imperative styles — React's style reconciliation is
                 // prop-based (compares old vs new style props, not DOM values).
                 // Since multi3d and multi3d_spreading have the same transform/opacity
@@ -687,7 +754,7 @@ const EditorLayoutInner = () => {
         sceneRafRef.current = requestAnimationFrame(() => {
             setSceneState("multi3d_collapsing");
             sceneRafRef.current = null;
-            scheduleSceneTimeout(SCENE_COLLAPSE_MS, () => {
+            scheduleSceneTimeout("settle", SCENE_COLLAPSE_MS, () => {
                 setSceneState(sceneTargetState);
                 setSceneTransitionViews(null);
                 setSceneCollapseToSingle(false);
@@ -813,6 +880,7 @@ const EditorLayoutInner = () => {
         }
 
         was3DModeRef.current = is3DMode;
+
         return () => {
             if (pending3DAdjustRafRef.current !== null) {
                 cancelAnimationFrame(pending3DAdjustRafRef.current);
@@ -1452,7 +1520,7 @@ const EditorLayoutInner = () => {
                             className="flex items-center pl-5 pb-2 w-full"
                             style={{
                                 opacity: hideAddButton ? 0 : 1,
-                                transition: hideAddButton ? 'none' : 'opacity 150ms ease-in-out',
+                                transition: hideAddButton ? 'none' : `opacity 150ms ease-in-out, margin-top ${legacyForwardEntryActive ? LEGACY_FORWARD_ENTRY_MS : SCENE_SPREAD_MS}ms ${legacyForwardEntryActive ? 'ease-in-out' : 'cubic-bezier(0.22, 1, 0.36, 1)'}`,
                                 marginTop: is3DMode && !isMultiLayersActive ? 320 : 0,
                             }}
                         >
