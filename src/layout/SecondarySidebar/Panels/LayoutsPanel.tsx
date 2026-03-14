@@ -21,6 +21,21 @@ import { layerLibraryService } from "@/services/layer-library.service";
 import type { LayoutGroup, ImportedLayer } from "@/types/layer-library";
 import { cn } from "@/lib/utils";
 
+// Dynamically discover all layout files placed in src/default-layouts
+// No code changes are required when adding new files here!
+const defaultLayoutModules = import.meta.glob('@/default-layouts/*.{viable,vil,json}', {
+    query: '?url',
+    import: 'default',
+    eager: true
+}) as Record<string, string>;
+
+// Transform the glob object into an array of { name, fileUrl }
+const DEFAULT_LAYOUTS = Object.entries(defaultLayoutModules).map(([path, url]) => {
+    // Extract just the filename without extension for the 'name'
+    const name = path.split('/').pop()?.replace(/\.(viable|vil|json)$/i, '') || 'unknown';
+    return { name, fileUrl: url };
+});
+
 const LayoutsPanel: FC = () => {
     const { layoutMode } = useLayoutSettings();
     const isHorizontal = layoutMode === "bottombar";
@@ -42,9 +57,36 @@ const LayoutsPanel: FC = () => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dropZoneRef = useRef<HTMLDivElement>(null);
 
-    // Load imported layouts on mount
+    // Load imported layouts on mount and handle defaults
     useEffect(() => {
-        setImportedLayouts(layerLibraryService.getImportedLayouts());
+        const loadInitialLayouts = async () => {
+            let currentLayouts = layerLibraryService.getImportedLayouts();
+
+            for (const layout of DEFAULT_LAYOUTS) {
+                // Check if layout with this name is already imported
+                if (!currentLayouts.find(l => l.name === layout.name)) {
+                    try {
+                        const response = await fetch(layout.fileUrl);
+                        if (response.ok) {
+                            const blob = await response.blob();
+                            // Generate a proper filename from the URL or name
+                            const filename = layout.fileUrl.split('/').pop()?.split('?')[0] || `${layout.name}.viable`;
+                            const file = new File([blob], filename, { type: "application/json" });
+                            await layerLibraryService.importLayoutFromFile(file);
+                            
+                            // Refresh layouts list from service after saving
+                            currentLayouts = layerLibraryService.getImportedLayouts();
+                        }
+                    } catch (e) {
+                        console.error(`Failed to load default layout ${layout.name}:`, e);
+                    }
+                }
+            }
+
+            setImportedLayouts(currentLayouts);
+        };
+
+        loadInitialLayouts();
     }, []);
 
     // Handle file import
@@ -298,6 +340,9 @@ const LayoutsPanel: FC = () => {
                         {/* Imported Layouts */}
                         {importedLayouts
                             .filter(hasMatchingLayers)
+                            .filter((layout, index, self) =>
+                                index === self.findIndex((t) => t.name === layout.name)
+                            )
                             .map(layout => (
                                 <LayoutGroupCard
                                     key={layout.id}
@@ -436,6 +481,9 @@ const LayoutsPanel: FC = () => {
                 {/* Imported Layouts */}
                 {importedLayouts
                     .filter(hasMatchingLayers)
+                    .filter((layout, index, self) =>
+                        index === self.findIndex((t) => t.name === layout.name)
+                    )
                     .map(layout => (
                         <LayoutGroupCard
                             key={layout.id}
