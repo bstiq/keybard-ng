@@ -53,8 +53,8 @@ export const middleSectionItems: SidebarItem[] = [
     { title: "Special Keys", url: "special", icon: Piano },
     { title: "Layer Keys", url: "layers", icon: LayersDefaultIcon },
     { title: "Mouse Keys", url: "mouse", icon: Mouse },
-    { title: "Tap Dances", url: "tapdances", icon: TapdanceIcon },
-    { title: "Macros", url: "macros", icon: MacrosIcon },
+    { title: "Tap Dance Keys", url: "tapdances", icon: TapdanceIcon },
+    { title: "Macro Keys", url: "macros", icon: MacrosIcon },
 ];
 
 // For backward compatibility

@@ -362,7 +362,7 @@ const LayoutsPanel: FC = () => {
             {/* Header with Import Button */}
             <div className="pl-0 pr-3 flex items-center justify-between">
                 <span className="text-sm text-gray-500">
-                    Import a layout file
+                    Import a .vial layout file.
                 </span>
                 <Button
                     variant="outline"
@@ -468,7 +468,7 @@ const LayoutsPanel: FC = () => {
                         <LayoutImport className="w-16 h-16 mx-auto mb-6 text-gray-200 dark:text-gray-800" />
                         <p className="text-base font-medium mb-2">No layouts loaded</p>
                         <p className="text-sm max-w-[200px] mx-auto opacity-70">
-                            Import a .viable file or publish a layer to get started
+                            Import a .viable file <br></br>or save one of your current layers from it's contextual menu.
                         </p>
                     </div>
                 )}

@@ -22,6 +22,7 @@ import MousePanel from "./Panels/MousePanel";
 import QMKSettingsPanel from "./Panels/QMKSettingsPanel";
 import SettingsPanel from "./Panels/SettingsPanel";
 import TapdancePanel from "./Panels/TapdancePanel";
+import AboutPanel from "./Panels/AboutPanel";
 
 import { Button } from "@/components/ui/button";
 import { Sidebar, SidebarContent, SidebarHeader, useSidebar } from "@/components/ui/sidebar";
@@ -52,8 +53,8 @@ const getPanelTitle = (panel: string | null | undefined, menus?: CustomUIMenuIte
     const titles: Record<string, string> = {
         keyboard: "Standard Keys",
         layers: "Layer Keys",
-        tapdances: "Tap Dances",
-        macros: "Macros",
+        tapdances: "Tap Dance Keys",
+        macros: "Macro Keys",
         qmk: "One-Shot (Legacy)",
         oneshot: "One-Shot / Mod-Tap",
         special: "Special Keys",
@@ -177,6 +178,7 @@ const SecondarySidebar = () => {
             case "mouse": return <MousePanel />;
             case "qmksettings": return <QMKSettingsPanel />;
             case "settings": return <SettingsPanel />;
+            case "about": return <AboutPanel />;
             default:
                 return (
                     <div className="grid place-items-center h-full text-center text-sm text-muted-foreground px-6">
