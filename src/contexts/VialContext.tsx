@@ -206,27 +206,27 @@ export const VialProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let isActive = true;
         let timeoutId: number | undefined;
 
-        const pollLayerState = async () => {
-            if (!isActive) return;
-            if (isConnected && keyboard && usbInstance.getDeviceName()) {
-                try {
-                    const activeLayer = await vialService.getActiveLayerIndex();
-                    if (isActive) {
-                        setActiveLayerIndex(activeLayer);
-                    }
-                } catch (error) {
-                    console.warn("Layer state polling error:", error);
-                }
-            } else if (isActive) {
-                setActiveLayerIndex(null);
-            }
+        // const pollLayerState = async () => {
+        //     if (!isActive) return;
+        //     if (isConnected && keyboard && usbInstance.getDeviceName()) {
+        //         try {
+        //             const activeLayer = await vialService.getActiveLayerIndex();
+        //             if (isActive) {
+        //                 setActiveLayerIndex(activeLayer);
+        //             }
+        //         } catch (error) {
+        //             console.warn("Layer state polling error:", error);
+        //         }
+        //     } else if (isActive) {
+        //         setActiveLayerIndex(null);
+        //     }
 
-            if (isActive) {
-                timeoutId = window.setTimeout(pollLayerState, 120);
-            }
-        };
+        //     if (isActive) {
+        //         timeoutId = window.setTimeout(pollLayerState, 120);
+        //     }
+        // };
 
-        pollLayerState();
+        // pollLayerState();
 
         return () => {
             isActive = false;

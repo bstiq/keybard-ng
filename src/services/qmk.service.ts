@@ -28,6 +28,7 @@ export class QMKService {
 
     console.log('[QMK] Starting QMK settings query...');
 
+    // TODO add a timout
     while (true) {
       // Query for QSIDs > cur (pass as 2-byte little-endian)
       const data = await this.usb.sendViable(

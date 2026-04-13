@@ -54,14 +54,16 @@ const MouseKeysSection = ({ compact, variant: variantOverride }: Props) => {
     ];
 
     // Row 2: 6 sniper keys
-    const sniperKeys = [
-        { keycode: "SV_SNIPER_2", label: "Sniper 2x" },
-        { keycode: "SV_SNIPER_3", label: "Sniper 3x" },
-        { keycode: "SV_SNIPER_5", label: "Sniper 5x" },
-        { keycode: "SV_SNIPER_2_TG", label: "Sniper 2x Toggle" },
-        { keycode: "SV_SNIPER_3_TG", label: "Sniper 3x Toggle" },
-        { keycode: "SV_SNIPER_5_TG", label: "Sniper 5x Toggle" },
-    ];
+    // no sniper keys for now
+    // TODO add "sniping" keycode
+    // const sniperKeys = [
+    //     { keycode: "SV_SNIPER_2", label: "Sniper 2x" },
+    //     { keycode: "SV_SNIPER_3", label: "Sniper 3x" },
+    //     { keycode: "SV_SNIPER_5", label: "Sniper 5x" },
+    //     { keycode: "SV_SNIPER_2_TG", label: "Sniper 2x Toggle" },
+    //     { keycode: "SV_SNIPER_3_TG", label: "Sniper 3x Toggle" },
+    //     { keycode: "SV_SNIPER_5_TG", label: "Sniper 5x Toggle" },
+    // ];
 
     const renderKey = (k: { keycode: string; label: string }, withModifiers: boolean = false) => {
         const finalKeycode = withModifiers ? applyModifiers(k.keycode, activeModifiers, false) : k.keycode;
@@ -187,16 +189,16 @@ const MouseKeysSection = ({ compact, variant: variantOverride }: Props) => {
                     </div>
                 )}
             </div>
-
+{/* 
             <div className="flex flex-col gap-1">
                 <span className={compact ? "text-[9px] font-bold text-slate-500 uppercase" : "font-semibold text-lg text-black"}>
                     Sniper Keys
                 </span>
-                {/* Row 2: Sniper keys */}
+                Row 2: Sniper keys
                 <div className="flex flex-wrap gap-1">
                     {sniperKeys.map((k) => renderKey(k, false))}
                 </div>
-            </div>
+            </div> */}
         </div>
     );
 };

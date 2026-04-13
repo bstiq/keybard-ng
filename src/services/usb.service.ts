@@ -71,14 +71,16 @@ export class ViableUSB {
   static readonly CMD_VIABLE_QMK_SETTINGS_GET = 0xa0;
   static readonly CMD_VIABLE_QMK_SETTINGS_SET = 0xa1;
   static readonly CMD_VIABLE_QMK_SETTINGS_RESET = 0xa2;
+
+  // everything under here is not worked out yet in qmk
+  // TODO I disabled them in code for now, later we need to implement
   static readonly CMD_VIABLE_LEADER_GET = 0xa3;
   static readonly CMD_VIABLE_LEADER_SET = 0xa4;
-  static readonly CMD_VIABLE_LAYER_STATE_GET = 0xa5;
-  static readonly CMD_VIABLE_LAYER_STATE_SET = 0xa6;
+  static readonly CMD_VIABLE_LAYER_STATE_GET = 0xa5; // this one is disabled and problematic
+  // static readonly CMD_VIABLE_LAYER_STATE_SET = 0xa6;
   static readonly CMD_VIABLE_FRAGMENT_GET_HARDWARE = 0xa7;
   static readonly CMD_VIABLE_FRAGMENT_GET_SELECTIONS = 0xa8;
   static readonly CMD_VIABLE_FRAGMENT_SET_SELECTIONS = 0xa9;
-  static readonly CMD_VIABLE_BOOTSTRAP = 0xaa;
 
   // Svalboard-specific constants
   static readonly SVAL_GET_LEFT_DPI = 0x00;
@@ -416,7 +418,7 @@ export class ViableUSB {
 
     const payload = [cmd, ...args];
     const message = this.buildMessage(payload);
-    console.warn("Sending via message:", message);
+    console.log("Sending via message:", message);
 
     // Queue the operations to prevent listener collision
     const operation = this.queue.then(async () => {
@@ -476,7 +478,7 @@ export class ViableUSB {
     // Build Viable command payload
     const payload = [cmd, ...args];
     const message = this.buildMessage(payload);
-    console.warn("Sending viable message:", message);
+    console.log("Sending viable message:", message);
 
     // Queue the operations
     const operation = this.queue.then(async () => {

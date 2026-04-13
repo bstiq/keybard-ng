@@ -255,10 +255,10 @@ export class ViableService {
             );
 
             const data = resp as Uint8Array;
-            console.log(`Received chunk: offset=${offset}, requested=${requestSize}, received=${data.length} (payload size: ${payload_size})`);
-            console.log("Chunk data preview:", data);
+            // console.log(`Received chunk: offset=${offset}, requested=${requestSize}, received=${data.length} (payload size: ${payload_size})`);
+            // console.log("Chunk data preview:", data);
             // Response format after wrapper stripped: [offset_lo][offset_hi][actual_size][data...]
-            console.log("Actual size:", data[3]);
+            // console.log("Actual size:", data[3]);
             const actualSize = data[3];
             for (let i = 0; i < actualSize && offset < payload_size; i++) {
                 pdv.setInt8(offset, data[4 + i]);
@@ -472,30 +472,30 @@ export class ViableService {
         return kmpressed;
     }
 
-    async getLayerStateMask(): Promise<number> {
-        const mask = await this.usb.sendViable(ViableUSB.CMD_VIABLE_LAYER_STATE_GET, [], {
-            uint32: true,
-            index: 1,
-        }) as number;
-        return mask >>> 0;
-    }
+    // async getLayerStateMask(): Promise<number> {
+    //     const mask = await this.usb.sendViable(ViableUSB.CMD_VIABLE_LAYER_STATE_GET, [], {
+    //         uint32: true,
+    //         index: 1,
+    //     }) as number;
+    //     return mask >>> 0;
+    // }
 
-    getActiveLayerIndexFromMask(mask: number): number {
-        const unsignedMask = mask >>> 0;
-        if (unsignedMask === 0) return 0;
-        for (let i = 31; i >= 0; i--) {
-            if ((unsignedMask & (1 << i)) !== 0) {
-                return i;
-            }
-        }
-        /* v8 ignore next */
-        return 0;
-    }
+    // getActiveLayerIndexFromMask(mask: number): number {
+    //     const unsignedMask = mask >>> 0;
+    //     if (unsignedMask === 0) return 0;
+    //     for (let i = 31; i >= 0; i--) {
+    //         if ((unsignedMask & (1 << i)) !== 0) {
+    //             return i;
+    //         }
+    //     }
+    //     /* v8 ignore next */
+    //     return 0;
+    // }
 
-    async getActiveLayerIndex(): Promise<number> {
-        const mask = await this.getLayerStateMask();
-        return this.getActiveLayerIndexFromMask(mask);
-    }
+    // async getActiveLayerIndex(): Promise<number> {
+    //     const mask = await this.getLayerStateMask();
+    //     return this.getActiveLayerIndexFromMask(mask);
+    // }
 
     // API methods for updating keyboard settings
     async updateKey(layer: number, row: number, col: number, keymask: number): Promise<void> {

@@ -179,7 +179,7 @@ export function getKeyContents(KBINFO: KeyboardInfo, keystr: any): any {
     }
 
     if (!keyid) {
-        console.log("invalid", keystr);
+        console.log("Invalid key: ", keystr);
         return {
             str: "??Invld??",
             title: "Invalid key string",

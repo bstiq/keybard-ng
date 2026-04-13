@@ -1,5 +1,7 @@
 import "./Svalboard.css";
 
+// TODO get rid of this
+
 import { FunctionComponent, useState } from "react";
 
 import Keyboard from "react-simple-keyboard";
