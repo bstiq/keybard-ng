@@ -396,8 +396,7 @@ export class ViableUSB {
   async send(cmd: number, args: number[], options?: USBSendOptions): Promise<Uint8Array>;
 
   /**
-   * Send VIA command via wrapper
-   * Wraps: [0xDD][client_id:4][0xFE][via_cmd][args...]
+   * Send VIA commands directly
    */
   async send(
     cmd: number,
@@ -411,7 +410,8 @@ export class ViableUSB {
 
     // Build VIA command payload
     const payload = [cmd, ...args];
-    const message = this.buildWrappedMessage(VIA_PREFIX, payload);
+    const message = payload;
+    console.warn("Sending via message:", message);
 
     // Queue the operations to prevent listener collision
     const operation = this.queue.then(async () => {
@@ -424,23 +424,26 @@ export class ViableUSB {
         this.listener = (data: ArrayBuffer) => {
           const u8 = new Uint8Array(data);
 
-          // Validation: check wrapper prefix and client ID
-          if (u8[0] !== WRAPPER_PREFIX) return;
-          const respClientId = u8[1] | (u8[2] << 8) | (u8[3] << 16) | (u8[4] << 24);
-          if (respClientId !== this.clientId) return;
+          // // we received data back from QMK's VIA directly.
+          // // TODO: a way to handle multiple keyboards connected at the same time.
 
-          // Additional validation if provided
-          if (options.validateInput) {
-            // Pass unwrapped data to validator
-            const unwrapped = new Uint8Array(data.slice(6));
-            if (!options.validateInput(unwrapped)) {
-              return;
-            }
-          }
+          // // Validation: check wrapper prefix and client ID
+          // if (u8[0] !== WRAPPER_PREFIX) return;
+          // const respClientId = u8[1] | (u8[2] << 8) | (u8[3] << 16) | (u8[4] << 24);
+          // if (respClientId !== this.clientId) return;
+
+          // // Additional validation if provided
+          // if (options.validateInput) {
+          //   // Pass unwrapped data to validator
+          //   const unwrapped = new Uint8Array(data.slice(6));
+          //   if (!options.validateInput(unwrapped)) {
+          //     return;
+          //   }
+          // }
 
           clearTimeout(timeoutId);
           try {
-            const result = this.parseWrappedResponse(data, options);
+            const result = data;
             resolve(result);
           } catch (e) {
             reject(e);
