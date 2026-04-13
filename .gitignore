@@ -5,3 +5,5 @@ dist
 .DS_Store
 coverage/
 docs/dev-sessions/
+*.crt
+*.key

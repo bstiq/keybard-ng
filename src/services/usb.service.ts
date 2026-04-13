@@ -9,15 +9,15 @@ const VIABLE_PREFIX = 0xdf;
 // const VIA_PREFIX = 0xfe;
 
 // Client ID constants
-const NONCE_SIZE = 20;
-const DEFAULT_TTL_SECS = 120;
+// const NONCE_SIZE = 20;
+// const DEFAULT_TTL_SECS = 120;
 
 // Generate cryptographically random nonce
-function generateNonce(): Uint8Array {
-  const nonce = new Uint8Array(NONCE_SIZE);
-  crypto.getRandomValues(nonce);
-  return nonce;
-}
+// function generateNonce(): Uint8Array {
+//   const nonce = new Uint8Array(NONCE_SIZE);
+//   crypto.getRandomValues(nonce);
+//   return nonce;
+// }
 
 export class ViableUSB {
   // VIA command constants (unchanged, used via wrapper)
@@ -78,6 +78,7 @@ export class ViableUSB {
   static readonly CMD_VIABLE_FRAGMENT_GET_HARDWARE = 0x18;
   static readonly CMD_VIABLE_FRAGMENT_GET_SELECTIONS = 0x19;
   static readonly CMD_VIABLE_FRAGMENT_SET_SELECTIONS = 0x1a;
+  static readonly CMD_VIABLE_BOOTSTRAP = 0x1b;
 
   // Svalboard-specific constants
   static readonly SVAL_GET_LEFT_DPI = 0x00;
@@ -101,10 +102,10 @@ export class ViableUSB {
 
   // Client ID management
   private clientId: number = 0;
-  private clientTtl: number = DEFAULT_TTL_SECS;
-  private clientIdExpiry: number = 0;
+  // private clientTtl: number = DEFAULT_TTL_SECS;
+  // private clientIdExpiry: number = 0;
   private renewalTimer?: ReturnType<typeof setTimeout>;
-  private bootstrapPromise?: Promise<void>; // Prevent concurrent bootstraps
+  // private bootstrapPromise?: Promise<void>; // Prevent concurrent bootstraps
 
   public onDisconnect?: () => void;
 
@@ -147,160 +148,159 @@ export class ViableUSB {
   /**
    * Ensure we have a valid client ID, bootstrapping if needed
    */
-  private async ensureClientId(): Promise<void> {
-    // If bootstrap already in progress, wait for it
-    if (this.bootstrapPromise) {
-      await this.bootstrapPromise;
-      return;
-    }
+  // private async ensureClientId(): Promise<void> {
+  //   // If bootstrap already in progress, wait for it
+  //   if (this.bootstrapPromise) {
+  //     await this.bootstrapPromise;
+  //     return;
+  //   }
 
-    if (this.clientId === 0 || Date.now() >= this.clientIdExpiry) {
-      console.log("Bootstrapping client ID...");
-      this.bootstrapPromise = this.bootstrapClientId();
-      try {
-        await this.bootstrapPromise;
-      } finally {
-        this.bootstrapPromise = undefined;
-      }
-    }
-  }
+  //   if (this.clientId === 0 || Date.now() >= this.clientIdExpiry) {
+  //     console.log("Bootstrapping client ID...");
+  //     this.bootstrapPromise = this.bootstrapClientId();
+  //     try {
+  //       await this.bootstrapPromise;
+  //     } finally {
+  //       this.bootstrapPromise = undefined;
+  //     }
+  //   }
+  // }
 
   /**
    * Bootstrap a client ID from the keyboard
    * Request: [0xDD][0x00000000][nonce:20]
    * Response: [0xDD][0x00000000][nonce:20][new_client_id:4][ttl:2]
    */
-  private async bootstrapClientId(): Promise<void> {
-    if (!this.device) throw new Error("USB device not connected");
+  // private async bootstrapClientId(): Promise<void> {
+  //   if (!this.device) throw new Error("USB device not connected");
 
-    const nonce = generateNonce();
+  //   const nonce = generateNonce();
 
-    const message = new Uint8Array(MSG_LEN);
-    message[0] = WRAPPER_PREFIX;
-    // Client ID = 0 (bootstrap)
-    message[1] = 0;
-    message[2] = 0;
-    message[3] = 0;
-    message[4] = 0;
-    // Nonce
-    message.set(nonce, 5);
+  //   const message = new Uint8Array(MSG_LEN);
+  //   message[0] = CMD_VIABLE_BOOTSTRAP;
+  //   // Client ID = 0 (bootstrap)
+  //   message[1] = 0;
+  //   message[2] = 0;
+  //   message[3] = 0;
+  //   message[4] = 0;
+  //   // Nonce
+  //   message.set(nonce, 5);
 
-    console.log("Bootstrap request:", Array.from(message.slice(0, 30)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+  //   console.log("Bootstrap request:", Array.from(message.slice(0, 30)).map(b => b.toString(16).padStart(2, '0')).join(' '));
 
-    // Send bootstrap request and wait for OUR response (might get other clients' responses first)
-    const maxAttempts = 5;
-    const maxReadsPerAttempt = 50;
+  //   // Send bootstrap request and wait for OUR response (might get other clients' responses first)
+  //   const maxAttempts = 5;
+  //   const maxReadsPerAttempt = 50;
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Send the bootstrap request
-      await this.device!.sendReport(0, message as BufferSource);
+  //   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  //     // Send the bootstrap request
+  //     await this.device!.sendReport(0, message as BufferSource);
 
-      // Read responses until we find ours or timeout
-      for (let read = 0; read < maxReadsPerAttempt; read++) {
-        const response = await this.readWithTimeout(500);
-        if (!response) {
-          console.log("Bootstrap read timeout, retrying send...");
-          break; // Timeout - retry the send
-        }
+  //     // Read responses until we find ours or timeout
+  //     for (let read = 0; read < maxReadsPerAttempt; read++) {
+  //       const response = await this.readWithTimeout(500);
+  //       if (!response) {
+  //         console.log("Bootstrap read timeout, retrying send...");
+  //         break; // Timeout - retry the send
+  //       }
 
-        console.log("Bootstrap response:", Array.from(response.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' '));
+  //       console.log("Bootstrap response:", Array.from(response.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' '));
 
-        // Validate wrapper prefix
-        if (response[0] !== WRAPPER_PREFIX) {
-          console.log("Unexpected response prefix, reading again...");
-          continue;
-        }
+  //       if (response[0] !== CMD_VIABLE_BOOTSTRAP) {
+  //         console.log("Unexpected response prefix, reading again...");
+  //         continue;
+  //       }
 
-        // Check if client ID is 0 (bootstrap response)
-        const respClientId = response[1] | (response[2] << 8) | (response[3] << 16) | (response[4] << 24);
-        if (respClientId !== 0) {
-          console.log(`Discarding response for client 0x${respClientId.toString(16)}, reading again...`);
-          continue;
-        }
+  //       // Check if client ID is 0 (bootstrap response)
+  //       const respClientId = response[1] | (response[2] << 8) | (response[3] << 16) | (response[4] << 24);
+  //       if (respClientId !== 0) {
+  //         console.log(`Discarding response for client 0x${respClientId.toString(16)}, reading again...`);
+  //         continue;
+  //       }
 
-        // Verify nonce echo (bytes 5-24)
-        let nonceMatch = true;
-        for (let i = 0; i < NONCE_SIZE; i++) {
-          if (response[5 + i] !== nonce[i]) {
-            nonceMatch = false;
-            break;
-          }
-        }
-        if (!nonceMatch) {
-          console.log("Nonce mismatch (another client's response), reading again...");
-          continue;
-        }
+  //       // Verify nonce echo (bytes 5-24)
+  //       let nonceMatch = true;
+  //       for (let i = 0; i < NONCE_SIZE; i++) {
+  //         if (response[5 + i] !== nonce[i]) {
+  //           nonceMatch = false;
+  //           break;
+  //         }
+  //       }
+  //       if (!nonceMatch) {
+  //         console.log("Nonce mismatch (another client's response), reading again...");
+  //         continue;
+  //       }
 
-        // Extract client ID (bytes 25-28, little-endian)
-        const newClientId = response[25] |
-          (response[26] << 8) |
-          (response[27] << 16) |
-          (response[28] << 24);
+  //       // Extract client ID (bytes 25-28, little-endian)
+  //       const newClientId = response[25] |
+  //         (response[26] << 8) |
+  //         (response[27] << 16) |
+  //         (response[28] << 24);
 
-        // Check for error
-        if (newClientId === 0xFFFFFFFF) {
-          const errorCode = response[29];
-          throw new Error(`Bootstrap failed with error code ${errorCode}`);
-        }
+  //       // Check for error
+  //       if (newClientId === 0xFFFFFFFF) {
+  //         const errorCode = response[29];
+  //         throw new Error(`Bootstrap failed with error code ${errorCode}`);
+  //       }
 
-        this.clientId = newClientId;
+  //       this.clientId = newClientId;
 
-        // Extract TTL (bytes 29-30, little-endian)
-        this.clientTtl = response[29] | (response[30] << 8);
+  //       // Extract TTL (bytes 29-30, little-endian)
+  //       this.clientTtl = response[29] | (response[30] << 8);
 
-        // Set expiry time (with 10% buffer for renewal)
-        this.clientIdExpiry = Date.now() + (this.clientTtl * 900); // 90% of TTL
+  //       // Set expiry time (with 10% buffer for renewal)
+  //       this.clientIdExpiry = Date.now() + (this.clientTtl * 900); // 90% of TTL
 
-        // Schedule renewal
-        this.scheduleRenewal();
+  //       // Schedule renewal
+  //       this.scheduleRenewal();
 
-        console.log(`Viable client ID bootstrapped: 0x${this.clientId.toString(16)}, TTL: ${this.clientTtl}s`);
-        return;
-      }
-    }
+  //       console.log(`Viable client ID bootstrapped: 0x${this.clientId.toString(16)}, TTL: ${this.clientTtl}s`);
+  //       return;
+  //     }
+  //   }
 
-    throw new Error("Bootstrap failed after all retries");
-  }
+  //   throw new Error("Bootstrap failed after all retries");
+  // }
 
   /**
    * Read a single HID report with timeout
    */
-  private readWithTimeout(timeoutMs: number): Promise<Uint8Array | null> {
-    return new Promise((resolve) => {
-      const timeoutId = setTimeout(() => {
-        this.device?.removeEventListener("inputreport", handler);
-        resolve(null);
-      }, timeoutMs);
+  // private readWithTimeout(timeoutMs: number): Promise<Uint8Array | null> {
+  //   return new Promise((resolve) => {
+  //     const timeoutId = setTimeout(() => {
+  //       this.device?.removeEventListener("inputreport", handler);
+  //       resolve(null);
+  //     }, timeoutMs);
 
-      const handler = (ev: HIDInputReportEvent) => {
-        clearTimeout(timeoutId);
-        this.device?.removeEventListener("inputreport", handler);
-        resolve(new Uint8Array(ev.data.buffer));
-      };
+  //     const handler = (ev: HIDInputReportEvent) => {
+  //       clearTimeout(timeoutId);
+  //       this.device?.removeEventListener("inputreport", handler);
+  //       resolve(new Uint8Array(ev.data.buffer));
+  //     };
 
-      this.device?.addEventListener("inputreport", handler);
-    });
-  }
+  //     this.device?.addEventListener("inputreport", handler);
+  //   });
+  // }
 
   /**
    * Schedule client ID renewal before expiry
    */
-  private scheduleRenewal(): void {
-    if (this.renewalTimer) {
-      clearTimeout(this.renewalTimer);
-    }
+  // private scheduleRenewal(): void {
+  //   if (this.renewalTimer) {
+  //     clearTimeout(this.renewalTimer);
+  //   }
 
-    const renewIn = this.clientIdExpiry - Date.now();
-    if (renewIn > 0) {
-      this.renewalTimer = setTimeout(async () => {
-        try {
-          await this.bootstrapClientId();
-        } catch (e) {
-          console.error("Failed to renew client ID:", e);
-        }
-      }, renewIn);
-    }
-  }
+  //   const renewIn = this.clientIdExpiry - Date.now();
+  //   if (renewIn > 0) {
+  //     this.renewalTimer = setTimeout(async () => {
+  //       try {
+  //         await this.bootstrapClientId();
+  //       } catch (e) {
+  //         console.error("Failed to renew client ID:", e);
+  //       }
+  //     }, renewIn);
+  //   }
+  // }
 
   getDeviceName(): string | null {
     return this.device?.productName || null;
@@ -312,7 +312,7 @@ export class ViableUSB {
       this.renewalTimer = undefined;
     }
     this.clientId = 0;
-    this.clientIdExpiry = 0;
+    // this.clientIdExpiry = 0;
 
     if (this.device) {
       if (this.handleEvent) {
@@ -406,7 +406,7 @@ export class ViableUSB {
     if (!this.device) throw new Error("USB device not connected");
 
     // Ensure we have a valid client ID
-    await this.ensureClientId();
+    // await this.ensureClientId();
 
     // Build VIA command payload
     const payload = [cmd, ...args];
@@ -444,6 +444,7 @@ export class ViableUSB {
           clearTimeout(timeoutId);
           try {
             const result = this.parseResponse(data, options);
+            console.warn("Response:", result);
             resolve(result);
           } catch (e) {
             reject(e);
@@ -484,7 +485,7 @@ export class ViableUSB {
     if (!this.device) throw new Error("USB device not connected");
 
     // Ensure we have a valid client ID
-    await this.ensureClientId();
+    // await this.ensureClientId();
 
     // Build Viable command payload
     const payload = [cmd, ...args];
