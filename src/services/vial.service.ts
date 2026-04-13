@@ -7,7 +7,8 @@ import LZMA from "js-lzma";
 import type { KeyboardInfo, AltRepeatKeyEntry, LeaderEntry } from "../types/vial.types";
 
 // Viable feature flags (from protocol info response)
-// CAPS_WORD = 0x01, LAYER_LOCK = 0x02 - not currently used
+// CAPS_WORD = 0x01, LAYER_LOCK = 0x02 - not currently used TODO,
+// ONESHOT = 0x04, LEADER = 0x08
 const VIABLE_FLAG_ONESHOT = 0x04;
 const VIABLE_FLAG_LEADER = 0x08;
 import { ComboService } from "./combo.service";
@@ -192,35 +193,46 @@ export class ViableService {
     }
 
     async getKeyboardInfo(kbinfo: KeyboardInfo): Promise<KeyboardInfo> {
-        // VIA Protocol version (via wrapped VIA command)
+        // VIA Protocol version
+        console.log("Getting VIA protocol version");
         kbinfo.via_proto = (await this.usb.send(ViableUSB.CMD_VIA_GET_PROTOCOL_VERSION, [], {
             unpack: "B>H",
             index: 1,
         })) as number;
 
+        console.log("Getting Viable protocol version");
         // Get Viable protocol info
-        const viableInfo = await this.usb.sendViable(ViableUSB.CMD_VIABLE_GET_INFO, [], {
+        const viableInfo = await this.usb.send(ViableUSB.CMD_VIABLE_GET_INFO, [], {
             uint8: true,
         });
+
+        console.log("viable info:", viableInfo);
 
         // Parse Viable info response:
         // Response format after wrapper stripped: [cmd_echo][protocol_version:4][uid:8][feature_flags:1]
         const dv = new DataView((viableInfo as Uint8Array).buffer);
-        kbinfo.viable_proto = dv.getUint32(1, true); // Skip cmd_echo
-        kbinfo.feature_flags = viableInfo[13]; // Skip cmd_echo
+        kbinfo.viable_proto = dv.getUint32(1, true); // protocol version
+        console.log("viable protocol version:", kbinfo.viable_proto);
+        kbinfo.feature_flags = viableInfo[9];
+        console.log("viable feature flags:", kbinfo.feature_flags);
 
         // Extract UID as hex string for kbid
         // UID is stored as little-endian 64-bit integer, so reverse bytes for hex string
-        const uidBytes = (viableInfo as Uint8Array).slice(5, 13); // Skip cmd_echo + protocol_version
+        const uidBytes = (viableInfo as Uint8Array).slice(10, 10+8); // Skip cmd_echo + protocol_version
         kbinfo.kbid = Array.from(uidBytes).reverse().map(b => b.toString(16).padStart(2, '0')).join('');
+        console.log("viable kb id:", kbinfo.kbid);
 
         // Get compressed JSON payload size via Viable protocol
         // Response format after wrapper stripped: [cmd_echo][size0][size1][size2][size3]
         const sizeResp = await this.usb.sendViable(ViableUSB.CMD_VIABLE_DEFINITION_SIZE, [], {
-            uint32: true,
-            index: 1, // Skip command echo byte
+            uint8: true,
         });
-        const payload_size = sizeResp as number;
+
+        const dv2 = new DataView((sizeResp as Uint8Array).buffer);
+        const sizeResp2 = dv2.getUint32(1, true);
+
+        console.log("Viable definition size:", sizeResp2);
+        const payload_size = sizeResp2 as number;
 
         if (payload_size > 50 * 1024 * 1024) { // Safety sanity check (50MB)
             throw new Error(`Invalid payload size: ${payload_size}`);

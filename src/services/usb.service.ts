@@ -52,33 +52,33 @@ export class ViableUSB {
   static readonly VIALRGB_SET_MODE = 0x41;
 
   // Viable command IDs (0xDF protocol)
-  static readonly CMD_VIABLE_GET_INFO = 0x00;
-  static readonly CMD_VIABLE_TAP_DANCE_GET = 0x01;
-  static readonly CMD_VIABLE_TAP_DANCE_SET = 0x02;
-  static readonly CMD_VIABLE_COMBO_GET = 0x03;
-  static readonly CMD_VIABLE_COMBO_SET = 0x04;
-  static readonly CMD_VIABLE_KEY_OVERRIDE_GET = 0x05;
-  static readonly CMD_VIABLE_KEY_OVERRIDE_SET = 0x06;
-  static readonly CMD_VIABLE_ALT_REPEAT_KEY_GET = 0x07;
-  static readonly CMD_VIABLE_ALT_REPEAT_KEY_SET = 0x08;
-  static readonly CMD_VIABLE_ONE_SHOT_GET = 0x09;
-  static readonly CMD_VIABLE_ONE_SHOT_SET = 0x0a;
-  static readonly CMD_VIABLE_SAVE = 0x0b;
-  static readonly CMD_VIABLE_RESET = 0x0c;
-  static readonly CMD_VIABLE_DEFINITION_SIZE = 0x0d;
-  static readonly CMD_VIABLE_DEFINITION_CHUNK = 0x0e;
-  static readonly CMD_VIABLE_QMK_SETTINGS_QUERY = 0x10;
-  static readonly CMD_VIABLE_QMK_SETTINGS_GET = 0x11;
-  static readonly CMD_VIABLE_QMK_SETTINGS_SET = 0x12;
-  static readonly CMD_VIABLE_QMK_SETTINGS_RESET = 0x13;
-  static readonly CMD_VIABLE_LEADER_GET = 0x14;
-  static readonly CMD_VIABLE_LEADER_SET = 0x15;
-  static readonly CMD_VIABLE_LAYER_STATE_GET = 0x16;
-  static readonly CMD_VIABLE_LAYER_STATE_SET = 0x17;
-  static readonly CMD_VIABLE_FRAGMENT_GET_HARDWARE = 0x18;
-  static readonly CMD_VIABLE_FRAGMENT_GET_SELECTIONS = 0x19;
-  static readonly CMD_VIABLE_FRAGMENT_SET_SELECTIONS = 0x1a;
-  static readonly CMD_VIABLE_BOOTSTRAP = 0x1b;
+  static readonly CMD_VIABLE_GET_INFO = 0x90;
+  static readonly CMD_VIABLE_TAP_DANCE_GET = 0x91;
+  static readonly CMD_VIABLE_TAP_DANCE_SET = 0x92;
+  static readonly CMD_VIABLE_COMBO_GET = 0x93;
+  static readonly CMD_VIABLE_COMBO_SET = 0x94;
+  static readonly CMD_VIABLE_KEY_OVERRIDE_GET = 0x95;
+  static readonly CMD_VIABLE_KEY_OVERRIDE_SET = 0x96;
+  static readonly CMD_VIABLE_ALT_REPEAT_KEY_GET = 0x97;
+  static readonly CMD_VIABLE_ALT_REPEAT_KEY_SET = 0x98;
+  static readonly CMD_VIABLE_ONE_SHOT_GET = 0x99;
+  static readonly CMD_VIABLE_ONE_SHOT_SET = 0x9a;
+  static readonly CMD_VIABLE_SAVE = 0x9b;
+  static readonly CMD_VIABLE_RESET = 0x9c;
+  static readonly CMD_VIABLE_DEFINITION_SIZE = 0x9d;
+  static readonly CMD_VIABLE_DEFINITION_CHUNK = 0x9e;
+  static readonly CMD_VIABLE_QMK_SETTINGS_QUERY = 0x9f;
+  static readonly CMD_VIABLE_QMK_SETTINGS_GET = 0xa0;
+  static readonly CMD_VIABLE_QMK_SETTINGS_SET = 0xa1;
+  static readonly CMD_VIABLE_QMK_SETTINGS_RESET = 0xa2;
+  static readonly CMD_VIABLE_LEADER_GET = 0xa3;
+  static readonly CMD_VIABLE_LEADER_SET = 0xa4;
+  static readonly CMD_VIABLE_LAYER_STATE_GET = 0xa5;
+  static readonly CMD_VIABLE_LAYER_STATE_SET = 0xa6;
+  static readonly CMD_VIABLE_FRAGMENT_GET_HARDWARE = 0xa7;
+  static readonly CMD_VIABLE_FRAGMENT_GET_SELECTIONS = 0xa8;
+  static readonly CMD_VIABLE_FRAGMENT_SET_SELECTIONS = 0xa9;
+  static readonly CMD_VIABLE_BOOTSTRAP = 0xaa;
 
   // Svalboard-specific constants
   static readonly SVAL_GET_LEFT_DPI = 0x00;
@@ -311,7 +311,7 @@ export class ViableUSB {
       clearTimeout(this.renewalTimer);
       this.renewalTimer = undefined;
     }
-    this.clientId = 0;
+    // this.clientId = 0;
     // this.clientIdExpiry = 0;
 
     if (this.device) {
@@ -343,19 +343,27 @@ export class ViableUSB {
    * Build wrapped message with client ID
    * Format: [0xDD][client_id:4][protocol][payload...]
    */
-  private buildWrappedMessage(protocol: number, payload: number[]): Uint8Array {
+  // private buildWrappedMessage(protocol: number, payload: number[]): Uint8Array {
+  //   const message = new Uint8Array(MSG_LEN);
+  //   message[0] = WRAPPER_PREFIX;
+  //   // Client ID (little-endian)
+  //   message[1] = this.clientId & 0xff;
+  //   message[2] = (this.clientId >> 8) & 0xff;
+  //   message[3] = (this.clientId >> 16) & 0xff;
+  //   message[4] = (this.clientId >> 24) & 0xff;
+  //   // Protocol
+  //   message[5] = protocol;
+  //   // Payload
+  //   for (let i = 0; i < payload.length && i < MSG_LEN - 6; i++) {
+  //     message[6 + i] = payload[i];
+  //   }
+  //   return message;
+  // }
+
+  private buildMessage(payload: number[]): Uint8Array {
     const message = new Uint8Array(MSG_LEN);
-    message[0] = WRAPPER_PREFIX;
-    // Client ID (little-endian)
-    message[1] = this.clientId & 0xff;
-    message[2] = (this.clientId >> 8) & 0xff;
-    message[3] = (this.clientId >> 16) & 0xff;
-    message[4] = (this.clientId >> 24) & 0xff;
-    // Protocol
-    message[5] = protocol;
-    // Payload
     for (let i = 0; i < payload.length && i < MSG_LEN - 6; i++) {
-      message[6 + i] = payload[i];
+      message[i] = payload[i];
     }
     return message;
   }
@@ -398,6 +406,7 @@ export class ViableUSB {
   /**
    * Send VIA commands directly
    */
+  // TODO this function is redundant. We can just use sendviable for everything
   async send(
     cmd: number,
     args: number[],
@@ -405,42 +414,20 @@ export class ViableUSB {
   ): Promise<Uint8Array | Uint16Array | Uint32Array | number | bigint | (number | bigint)[]> {
     if (!this.device) throw new Error("USB device not connected");
 
-    // Ensure we have a valid client ID
-    // await this.ensureClientId();
-
-    // Build VIA command payload
     const payload = [cmd, ...args];
-    const message = payload;
+    const message = this.buildMessage(payload);
     console.warn("Sending via message:", message);
 
     // Queue the operations to prevent listener collision
     const operation = this.queue.then(async () => {
       return new Promise<Uint8Array | Uint16Array | Uint32Array | number | bigint | (number | bigint)[]>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          console.warn("USB Command Timed out waiting for valid response:", cmd);
-          reject(new Error("USB Command Timeout"));
+          console.warn("VIA Command Timed out waiting for valid response:", cmd);
+          reject(new Error("VIA Command Timeout"));
         }, 1000);
 
+        // TODO check for errors
         this.listener = (data: ArrayBuffer) => {
-          // const u8 = new Uint8Array(data);
-
-          // // we received data back from QMK's VIA directly.
-          // // TODO: a way to handle multiple keyboards connected at the same time.
-
-          // // Validation: check wrapper prefix and client ID
-          // if (u8[0] !== WRAPPER_PREFIX) return;
-          // const respClientId = u8[1] | (u8[2] << 8) | (u8[3] << 16) | (u8[4] << 24);
-          // if (respClientId !== this.clientId) return;
-
-          // // Additional validation if provided
-          // if (options.validateInput) {
-          //   // Pass unwrapped data to validator
-          //   const unwrapped = new Uint8Array(data.slice(6));
-          //   if (!options.validateInput(unwrapped)) {
-          //     return;
-          //   }
-          // }
-
           clearTimeout(timeoutId);
           try {
             const result = this.parseResponse(data, options);
@@ -451,10 +438,10 @@ export class ViableUSB {
           }
         };
 
-        // this.device!.sendReport(0, message as BufferSource).catch(err => {
-        //   clearTimeout(timeoutId);
-        //   reject(err);
-        // });
+        this.device!.sendReport(0, message as BufferSource).catch(err => {
+          clearTimeout(timeoutId);
+          reject(err);
+        });
       });
     });
 
@@ -474,8 +461,7 @@ export class ViableUSB {
   async sendViable(cmd: number, args: number[], options?: USBSendOptions): Promise<Uint8Array>;
 
   /**
-   * Send Viable command via wrapper
-   * Wraps: [0xDD][client_id:4][0xDF][viable_cmd][args...]
+   * Send Viable command
    */
   async sendViable(
     cmd: number,
@@ -489,7 +475,8 @@ export class ViableUSB {
 
     // Build Viable command payload
     const payload = [cmd, ...args];
-    const message = this.buildWrappedMessage(VIABLE_PREFIX, payload);
+    const message = this.buildMessage(payload);
+    console.warn("Sending viable message:", message);
 
     // Queue the operations
     const operation = this.queue.then(async () => {
@@ -499,33 +486,11 @@ export class ViableUSB {
           reject(new Error("USB Command Timeout"));
         }, 1000);
 
+        // TODO check for errors
         this.listener = (data: ArrayBuffer) => {
-          const u8 = new Uint8Array(data);
-
-          // Validation: check wrapper prefix and client ID
-          if (u8[0] !== WRAPPER_PREFIX) return;
-          const respClientId = u8[1] | (u8[2] << 8) | (u8[3] << 16) | (u8[4] << 24);
-          if (respClientId !== this.clientId) return;
-
-          // Check for error response (protocol byte = 0xFF)
-          if (u8[5] === 0xFF) {
-            clearTimeout(timeoutId);
-            const errorCode = u8[6];
-            reject(new Error(`Viable protocol error: code ${errorCode}`));
-            return;
-          }
-
-          // Additional validation if provided
-          if (options.validateInput) {
-            const unwrapped = new Uint8Array(data.slice(6));
-            if (!options.validateInput(unwrapped)) {
-              return;
-            }
-          }
-
           clearTimeout(timeoutId);
           try {
-            const result = this.parseWrappedResponse(data, options);
+            const result = this.parseResponse(data, options);
             resolve(result);
           } catch (e) {
             reject(e);
