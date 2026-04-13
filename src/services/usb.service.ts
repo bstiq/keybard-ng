@@ -6,7 +6,7 @@ import { BE16, LE16, MSG_LEN } from "./utils";
 // Protocol prefixes
 const WRAPPER_PREFIX = 0xdd;
 const VIABLE_PREFIX = 0xdf;
-const VIA_PREFIX = 0xfe;
+// const VIA_PREFIX = 0xfe;
 
 // Client ID constants
 const NONCE_SIZE = 20;
@@ -422,7 +422,7 @@ export class ViableUSB {
         }, 1000);
 
         this.listener = (data: ArrayBuffer) => {
-          const u8 = new Uint8Array(data);
+          // const u8 = new Uint8Array(data);
 
           // // we received data back from QMK's VIA directly.
           // // TODO: a way to handle multiple keyboards connected at the same time.
@@ -443,7 +443,7 @@ export class ViableUSB {
 
           clearTimeout(timeoutId);
           try {
-            const result = data;
+            const result = this.parseResponse(data, options);
             resolve(result);
           } catch (e) {
             reject(e);
