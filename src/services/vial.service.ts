@@ -240,6 +240,7 @@ export class ViableService {
 
         // Fetch definition in chunks using Viable protocol
         // VIABLE_DEFINITION_CHUNK_SIZE = 22 (32 total - 6 wrapper - 4 response header)
+        console.log("Fetching Viable definition in chunks...");
         const chunkSize = 22;
         const payload = new ArrayBuffer(payload_size);
         const pdv = new DataView(payload);
@@ -254,11 +255,15 @@ export class ViableService {
             );
 
             const data = resp as Uint8Array;
-            // Response format after wrapper stripped: [cmd_echo][offset_lo][offset_hi][actual_size][data...]
+            console.log(`Received chunk: offset=${offset}, requested=${requestSize}, received=${data.length} (payload size: ${payload_size})`);
+            console.log("Chunk data preview:", data);
+            // Response format after wrapper stripped: [offset_lo][offset_hi][actual_size][data...]
+            console.log("Actual size:", data[3]);
             const actualSize = data[3];
             for (let i = 0; i < actualSize && offset < payload_size; i++) {
                 pdv.setInt8(offset, data[4 + i]);
                 offset++;
+                // console.log(`Writing byte:`, data[4 + i]);
             }
 
             if (actualSize < requestSize) break; // End of data
@@ -267,6 +272,7 @@ export class ViableService {
         // Decompress and parse JSON
         const decompressed = await decompress(payload);
         const payloadData = JSON.parse(decompressed);
+        console.log("Decompressed payload data:", payloadData);
         kbinfo.payload = payloadData;
 
         kbinfo.rows = payloadData.matrix.rows;
