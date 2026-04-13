@@ -450,10 +450,10 @@ export class ViableUSB {
           }
         };
 
-        this.device!.sendReport(0, message as BufferSource).catch(err => {
-          clearTimeout(timeoutId);
-          reject(err);
-        });
+        // this.device!.sendReport(0, message as BufferSource).catch(err => {
+        //   clearTimeout(timeoutId);
+        //   reject(err);
+        // });
       });
     });
 
